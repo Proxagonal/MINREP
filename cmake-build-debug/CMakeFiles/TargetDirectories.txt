@@ -1,0 +1,5 @@
+C:/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-debug/CMakeFiles/MINREP.dir
+C:/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-debug/CMakeFiles/package.dir
+C:/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-debug/CMakeFiles/package_source.dir
+C:/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-debug/CMakeFiles/rebuild_cache.dir
