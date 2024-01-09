@@ -1,2 +1,2 @@
-
-cmake-build-debug/_deps/sfml-src/
+/cmake-build-debug/
+/cmake-build-release/
