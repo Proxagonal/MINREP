@@ -119,7 +119,7 @@ public:
             }
         }
 
-        return total;
+        return total/2;
     }
 
     long double calcKinetic() {
