@@ -31,8 +31,8 @@ public:
 
     void tranformToCOMSystem() {
 
-        Vector2<long double> COM = calcCOM();
-        Vector2<long double> COMVel = calcCOMVelocity();
+        Vector2d COM = calcCOM();
+        Vector2d COMVel = calcCOMVelocity();
 
         for (Body &body : bodyList) {
             body.position -= COM;
@@ -75,9 +75,9 @@ public:
             body.acceleration = totalGravitationalAccelerationOf(body);
     }
 
-    Vector2<long double> totalGravitationalAccelerationOf(Body &body) {
+    Vector2d totalGravitationalAccelerationOf(Body &body) {
 
-        Vector2<long double> acc(0, 0);
+        Vector2d acc(0, 0);
 
         for (Body &otherBody : bodyList)
             if (body.vectorTo(otherBody).norm() != 0)
@@ -87,23 +87,23 @@ public:
     };
 
     //acceleration exerted by body2, on body1
-    Vector2<long double> gravitationalAccelerationOf(Body &body1, Body &body2) {
+    Vector2d gravitationalAccelerationOf(Body &body1, Body &body2) {
 
-        Vector2<long double> rHat = body1.vectorTo(body2).normalized();
-        long double rSquared = body1.vectorTo(body2).squaredNorm();
+        Vector2d rHat = body1.vectorTo(body2).normalized();
+        double rSquared = body1.vectorTo(body2).squaredNorm();
 
         return rHat * G * body2.mass/rSquared;
     };
 
     //calculates potential energy
-    long double calcPotential() {
+    double calcPotential() {
 
-        long double total = 0;
+        double total = 0;
 
         for (Body &body1 : bodyList) {
             for (Body &body2: bodyList) {
                 if (&body1 != &body2) {
-                    total += ((long double)(-G * body1.mass * body2.mass)) / (long double)body1.vectorTo(body2).norm();
+                    total += ((double)(-G * body1.mass * body2.mass)) / (double)body1.vectorTo(body2).norm();
                 }
             }
         }
@@ -111,9 +111,9 @@ public:
         return total/2;
     }
 
-    Vector2<long double> calcCOM() {
+    Vector2d calcCOM() {
 
-        Vector2<long double> com(0,0);
+        Vector2d com(0,0);
 
         for (Body &body : bodyList)
             com += body.mass * body.position;
@@ -121,9 +121,9 @@ public:
         return com/totalMass;
     }
 
-    Vector2<long double> calcMomentum() {
+    Vector2d calcMomentum() {
 
-        Vector2<long double> momentum(0, 0);
+        Vector2d momentum(0, 0);
 
         for (Body &body : bodyList)
             momentum += body.momentum();
@@ -131,7 +131,7 @@ public:
         return momentum;
     }
 
-    Vector2<long double> calcCOMVelocity() {
+    Vector2d calcCOMVelocity() {
 
         return calcMomentum()/totalMass;
     }
@@ -149,11 +149,11 @@ public:
     //calculates important quantities
     Quantities quantities() {
 
-        long double momx = 0;
-        long double momy = 0;
-        long double kin = 0;
+        double momx = 0;
+        double momy = 0;
+        double kin = 0;
 
-        long double pot = calcPotential();
+        double pot = calcPotential();
 
         for (Body body : bodyList) {
             momx += body.momentum().x();
@@ -169,20 +169,20 @@ public:
 
         vector<Body> list;
 
-        vector<long double> sine = {1, 1.5, -2.5};
-        vector<long double> cosine = {1.5, 4.5, -1.5};
+        vector<double> sine = {1, 1.5, -2.5};
+        vector<double> cosine = {1.5, 4.5, -1.5};
 
 
         double rad = 20;
         double speed = 0;
 
-        Vector2<long double> pos;
-        Vector2<long double> vel;
+        Vector2d pos;
+        Vector2d vel;
 
         for (int i = 0; i < 3; i++) {
             double theta = i*2*M_PI/3;
-            pos = rad*Vector2<long double>(cosine.at(i), sine.at(i));
-            vel = speed*Vector2<long double>(-sine.at(i), cosine.at(i));
+            pos = rad*Vector2d(cosine.at(i), sine.at(i));
+            vel = speed*Vector2d(-sine.at(i), cosine.at(i));
             list.emplace_back(1.0,
                               pos,
                               vel);

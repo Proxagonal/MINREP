@@ -11,27 +11,27 @@ using namespace Eigen;
 class Body {
 
 private:
-    Vector2<long double> lastPosition;
+    Vector2d lastPosition;
     double lastDt;
     bool firstStepDone = false;
 
 public:
     double mass;
-    Vector2<long double> position;
-    Vector2<long double> velocity;
-    Vector2<long double> acceleration = Vector2<long double>(0,0);
+    Vector2d position;
+    Vector2d velocity;
+    Vector2d acceleration = Vector2d(0,0);
 
-    Body(double mass, Vector2<long double> pos, Vector2<long double>vel) {
+    Body(double mass, Vector2d pos, Vector2d vel) {
         this->mass = mass;
         position = pos;
         velocity = vel;
     };
 
-    long double kineticEnergy() {
+    double kineticEnergy() {
         return momentum().squaredNorm()/(2 * mass);
     };
 
-    Vector2<long double> momentum() {
+    Vector2d momentum() {
         return mass * velocity;
     }
 
@@ -50,7 +50,7 @@ public:
             return;
         }
 
-        Vector2<long double> nextPosition = position
+        Vector2d nextPosition = position
                                 + (position - lastPosition) * dt/lastDt
                                 + acceleration * dt * (dt + lastDt)/2;
         lastDt = dt;
@@ -62,7 +62,7 @@ public:
 
     };
 
-    Vector2<long double> vectorTo(Body &body) {
+    Vector2d vectorTo(Body &body) {
         return body.position - position;
     };
 };

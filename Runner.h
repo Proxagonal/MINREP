@@ -2,50 +2,66 @@
 #define MINREP_RUNNER_H
 
 #include <iostream>
-#include <Eigen/Eigen>
-#include <SFML/Graphics.hpp>
-#include <SFML/Window.hpp>
-#include <SFML/System.hpp>
 #include "Solver.h"
-#include "Body.h"
 #include "Visualizer.h"
+#include "Quantities.h"
 
 using namespace std;
 using namespace Eigen;
 
+
 #define COMPARE_QUANTS true
 #define VISUALIZE true
+
+
 
 class Runner {
 
     Solver solver;
     const Quantities initialQuantities = solver.quantities();
-    Visualizer vs;
 
-#ifdef VISUALIZE
-    Visualizer visuals(800, 800);
-#endif
+    #ifdef VISUALIZE
+    Visualizer visuals{800, 800};
+    #endif
 
 private:
-    int i = 0;
+
     const int T = 100;
-    double dt = 0.001;
+    const double dt = 0.001;
+    int i = 0;
+
+    bool isWindowOpen() {
+        if (VISUALIZE)
+            return visuals.isOpen();
+        return true;
+    }
+
+    void quantComparison() {
+        if (fmod(i*dt, 5) == 0) {
+
+            cout << "----------" << endl;
+            cout << "TIME: " << i*dt << endl;
+            Quantities::compare(solver.quantities(), initialQuantities);
+        }
+    }
 
 public:
 
     Runner() {
     }
 
-    //void visualizationLoop(vector<Body> &bodiesInfo) {
-    //    if (VISUALIZE)
-    //        visuals.visualizationLoop(bodiesInfo);
-    //}
-
     void run() {
 
+        while (isWindowOpen() && i < T/dt) {
+            i++;
 
-        while (i < T/dt) {
             solver.passTime(dt);
+
+            if (VISUALIZE)
+                visuals.visualizationLoop(solver.getBodiesInfo());
+
+            if (COMPARE_QUANTS)
+                quantComparison();
         }
 
     }

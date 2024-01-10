@@ -59,17 +59,16 @@ public:
         window.setView(view);
     }
 
+    bool isOpen() {
+        return window.isOpen();
+    }
+
 
     //----THIS MESS IS RELATED TO ME REORGINIZING MY CODE:
 
     //void simulate(Solver solver) {
 //
-    //    double dt = 0.1;
-    //    int T = 1000;
-    //    int i = 0;
 //
-    //    while (window.isOpen() && i < T/dt) {
-    //        i++;
 //
     //        if (fmod(i*dt, 1) == 0) {
 //
@@ -82,7 +81,7 @@ public:
     //    }
     //}
 
-    void visualizationLoop(vector<Body> &bodiesInfo) {
+    void visualizationLoop(const vector<Body> &bodiesInfo) {
 
         sf::Event event;
 

@@ -18,84 +18,45 @@ class Quantities {
 
 public:
 
-    long double xMomentum;
-    long double yMomentum;
-    long double energy;
-    long double angularMomentum;
-    long double kineticEnergy;
-    long double potentialEnergy;
+    array<double, SIZE> quants;
 
 
-    Quantities (long double xMomentum,
-                long double yMomentum,
-                long double angularMomentum,
-                long double kineticEnergy,
-                long double potentialEnergy):
-
-                xMomentum{xMomentum},
-                yMomentum{yMomentum},
-                energy{kineticEnergy + potentialEnergy},
-                angularMomentum{angularMomentum},
-                kineticEnergy{kineticEnergy},
-                potentialEnergy{potentialEnergy}
+    Quantities (double xMomentum,
+                double yMomentum,
+                double angularMomentum,
+                double kineticEnergy,
+                double potentialEnergy):
+                quants{xMomentum,yMomentum,kineticEnergy + potentialEnergy,angularMomentum,kineticEnergy,potentialEnergy}
     {
-    }
-
-    Quantities (Vector2<long double> momentum,
-                long double angularMomentum,
-                long double kineticEnergy,
-                long double potentialEnergy):
-
-            xMomentum{momentum.x()},
-            yMomentum{momentum.y()},
-            energy{kineticEnergy + potentialEnergy},
-            angularMomentum{angularMomentum},
-            kineticEnergy{kineticEnergy},
-            potentialEnergy{potentialEnergy}
-    {
-    }
-
-    Quantities () {
-    }
-
-    array<long double, SIZE> inArray() {
-        return  {xMomentum,
-                yMomentum,
-                energy,
-                angularMomentum,
-                kineticEnergy,
-                potentialEnergy};
     }
 
     string toString() {
 
-        array<long double, SIZE> arr = inArray();
-
         string txt = "";
 
         for (int i = 0; i < SIZE; i++)
-            txt += namesWithColons.at(i) + to_string(arr.at(i)) + "\n";
+            txt += namesWithColons.at(i) + to_string(quants.at(i)) + "\n";
 
         return txt;
     }
 
-    static void compare(vector<long double> now, vector<long double> init) {
-
-        // kinetic energy and potential energy aren't supposed to be conserved, so I don't print them
-        for (int i = 0; i<SIZE; i++) {
-            if (init.at(i) == 0) {
-                cout << namesWithColons.at(i) << "0 -> " << deviation(now.at(i), init.at(i)) << endl;
-                continue;
-            }
-            cout << namesWithColons.at(i) << deviation(now.at(i), init.at(i)) << endl;
-
-        }
-    }
-
-    static long double deviation(long double x, long double y) {
+    static double deviation(double x, double y) {
         if (y == 0)
             return x;
         return (x-y)/y;
+    }
+
+    static void compare(Quantities now, Quantities init) {
+
+        // kinetic energy and potential energy aren't supposed to be conserved, so I don't print them
+        for (int i = 0; i<SIZE; i++) {
+            if (init.quants.at(i) == 0) {
+                cout << namesWithColons.at(i) << "0 -> " << deviation(now.quants.at(i), init.quants.at(i)) << endl;
+                continue;
+            }
+            cout << namesWithColons.at(i) << deviation(now.quants.at(i), init.quants.at(i)) << endl;
+
+        }
     }
 
 };
