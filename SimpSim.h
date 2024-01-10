@@ -8,7 +8,6 @@
 #include <SFML/System.hpp>
 #include "Solver.h"
 #include "Body.h"
-#include "sfLine.h"
 
 #define RAD 100
 #define SYSRAD 10000
@@ -126,16 +125,6 @@ public:
                 drawBody(body);
 
             drawPos(initCOM + i*dt * COMVelocity);
-
-
-            for (int j = 0; j < points.size() - 1; j++) {
-                sfLine line(sf::Vector2f(points.at(j).x(), points.at(j).y()),
-                            sf::Vector2f(points.at(j+1).x(), points.at(j+1).y()));
-                line.thickness = 1000;
-                line.color = sf::Color::Red;
-                line.draw(window);
-            }
-
 
             window.display();
 

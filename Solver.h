@@ -161,17 +161,6 @@ public:
         return calcMomentum()/totalMass;
     }
 
-    long double calcAngularMomentum() {
-
-        long double total = 0;
-        Vector2<long double> COM = calcCOM();
-        Vector2<long double> COMVel = calcCOMVelocity();
-
-        //for (Body &body : bodyList)
-        //    total += crossProd2D(body.position - COM, body.velocity - COMVel);
-
-    }
-
     template<class T>
     static T crossProd2D(Vector2<T> vec1, Vector2<T> vec2) {
         return vec1.x() * vec2.y() - vec1.y() * vec2.x();

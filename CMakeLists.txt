@@ -8,7 +8,6 @@ add_executable(MINREP
         Solver.h
         Body.h
         SimpSim.h
-        sfLine.h
         Quantities.h
 )
 
