@@ -9,8 +9,8 @@
 #include "Solver.h"
 #include "Body.h"
 
-#define RAD 100
-#define SYSRAD 10000
+#define RAD 1
+#define SYSRAD 100
 
 using namespace std;
 using namespace Eigen;
@@ -78,8 +78,8 @@ public:
 
     void simulate(Solver solver) {
 
-        double dt = 0.001;
-        int T = 100;
+        double dt = 0.1;
+        int T = 1000;
         int i = 0;
         vector<Vector2<long double>> points;
         Vector2<long double> initCOM = solver.calcCOM();

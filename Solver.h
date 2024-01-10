@@ -11,14 +11,12 @@ using namespace Eigen;
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
-//static const array<double, ORDER> C = {1, -2.0/3, 2.0/3};
-//static const array<double, ORDER> D = {-1.0/24, 3.0/4, 7.0/24};
 
 class Solver {
 
 private:
 
-    const double G = 6.674 * pow(10, -11);
+    const double G = 4*M_PI*M_PI;
     const int subSteps = 2000;
     double totalMass = 0;
     Quantities initQuants;
@@ -161,12 +159,6 @@ public:
         return calcMomentum()/totalMass;
     }
 
-    template<class T>
-    static T crossProd2D(Vector2<T> vec1, Vector2<T> vec2) {
-        return vec1.x() * vec2.y() - vec1.y() * vec2.x();
-    }
-
-
     //calculates important quantities
     vector<long double> quantsInfo() {
 
@@ -197,8 +189,8 @@ public:
         vector<long double> cosine = {1.5, 4.5, -1.5};
 
 
-        double rad = 10000;
-        double speed = 500;
+        double rad = 20;
+        double speed = 0;
 
         Vector2<long double> pos;
         Vector2<long double> vel;
@@ -207,7 +199,7 @@ public:
             double theta = i*2*M_PI/3;
             pos = rad*Vector2<long double>(cosine.at(i), sine.at(i));
             vel = speed*Vector2<long double>(-sine.at(i), cosine.at(i));
-            list.emplace_back(5000000000000000000000.0,
+            list.emplace_back(1.0,
                               pos,
                               vel);
         }
