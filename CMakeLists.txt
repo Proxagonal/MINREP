@@ -7,8 +7,9 @@ add_executable(MINREP
         main.cpp
         Solver.h
         Body.h
-        SimpSim.h
+        Visualizer.h
         Quantities.h
+        Runner.h
 )
 
 include_directories("include/eigen-3.4.0")

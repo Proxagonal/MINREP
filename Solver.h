@@ -18,24 +18,15 @@ private:
 
     const double G = 4*M_PI*M_PI;
     const int subSteps = 2000;
-    double totalMass = 0;
-    Quantities initQuants;
 
-    vector<Body> bodyList;
+    vector<Body> bodyList = initialConditions();
+    const double totalMass = calcMass();
+
 
 public:
 
     Solver() {
-
-        bodyList = initialConditions();
-
-        for (Body &body : bodyList)
-            totalMass += body.mass;
-
         tranformToCOMSystem();
-
-        initQuants = Quantities(calcMomentum(), 1, calcKinetic(), calcPotential());
-
     }
 
     void tranformToCOMSystem() {
@@ -120,20 +111,6 @@ public:
         return total/2;
     }
 
-    long double calcKinetic() {
-
-        long double total = 0;
-
-        for (Body &body : bodyList)
-            total += body.kineticEnergy();
-
-        return total;
-    }
-
-    long double calcEnergy() {
-        return calcKinetic() + calcPotential();
-    }
-
     Vector2<long double> calcCOM() {
 
         Vector2<long double> com(0,0);
@@ -159,13 +136,22 @@ public:
         return calcMomentum()/totalMass;
     }
 
+    double calcMass() {
+
+        double mass = 0;
+
+        for (Body body : bodyList)
+            mass += body.mass;
+
+        return mass;
+    }
+
     //calculates important quantities
-    vector<long double> quantsInfo() {
+    Quantities quantities() {
 
         long double momx = 0;
         long double momy = 0;
         long double kin = 0;
-        long double energy = 0;
 
         long double pot = calcPotential();
 
@@ -175,9 +161,7 @@ public:
             kin += body.kineticEnergy();
         }
 
-        energy = kin + pot;
-
-        return {momx, momy, energy, kin, pot};
+        return {momx, momy, 1, kin, pot};
     };
 
     //returns initial conditions of system
@@ -213,6 +197,5 @@ public:
     }
 
 };
-
 
 #endif
