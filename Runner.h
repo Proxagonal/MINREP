@@ -59,7 +59,7 @@ public:
     void run() {
 
         while (isWindowOpen() && i < T/dt) {
-            
+
             i++;
 
             solver.passTime(dt);
