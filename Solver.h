@@ -23,31 +23,34 @@ private:
     const double totalMass = calcMass();
 
 
-public:
+    //returns initial conditions of system
+    vector<Body> initialConditions() {
 
-    Solver() {
-        tranformToCOMSystem();
-    }
+        vector<Body> list;
 
-    void tranformToCOMSystem() {
+        vector<double> sine = {1, 1.5, -2.5};
+        vector<double> cosine = {1.5, 4.5, -1.5};
 
-        Vector2d COM = calcCOM();
-        Vector2d COMVel = calcCOMVelocity();
 
-        for (Body &body : bodyList) {
-            body.position -= COM;
-            body.velocity -= COMVel;
+        double rad = 20;
+        double speed = 0;
+
+        Vector2d pos;
+        Vector2d vel;
+
+        for (int i = 0; i < 3; i++) {
+            double theta = i*2*M_PI/3;
+            pos = rad*Vector2d(cosine.at(i), sine.at(i));
+            vel = speed*Vector2d(-sine.at(i), cosine.at(i));
+            list.emplace_back(1.0,
+                              pos,
+                              vel);
         }
-    }
 
-    void passTime(double dt) {
-
-        for (int i = 0; i < subSteps; i++) {
-            doSymplecticIntegrator(dt/subSteps);
-            //doVerlet(dt/subSteps);
-        }
+        return list;
 
     }
+
 
     void doSymplecticIntegrator(double dt) {
 
@@ -146,6 +149,33 @@ public:
         return mass;
     }
 
+    void tranformToCOMSystem() {
+
+        Vector2d COM = calcCOM();
+        Vector2d COMVel = calcCOMVelocity();
+
+        for (Body &body : bodyList) {
+            body.position -= COM;
+            body.velocity -= COMVel;
+        }
+    }
+
+
+public:
+
+    Solver() {
+        tranformToCOMSystem();
+    }
+
+    void passTime(double dt) {
+
+        for (int i = 0; i < subSteps; i++) {
+            doSymplecticIntegrator(dt/subSteps);
+            //doVerlet(dt/subSteps);
+        }
+
+    }
+
     //calculates important quantities
     Quantities quantities() {
 
@@ -164,36 +194,17 @@ public:
         return {momx, momy, 1, kin, pot};
     };
 
-    //returns initial conditions of system
-    vector<Body> initialConditions() {
-
-        vector<Body> list;
-
-        vector<double> sine = {1, 1.5, -2.5};
-        vector<double> cosine = {1.5, 4.5, -1.5};
-
-
-        double rad = 20;
-        double speed = 0;
-
-        Vector2d pos;
-        Vector2d vel;
-
-        for (int i = 0; i < 3; i++) {
-            double theta = i*2*M_PI/3;
-            pos = rad*Vector2d(cosine.at(i), sine.at(i));
-            vel = speed*Vector2d(-sine.at(i), cosine.at(i));
-            list.emplace_back(1.0,
-                              pos,
-                              vel);
-        }
-
-        return list;
-
-    }
-
     const vector<Body> &getBodiesInfo() {
         return bodyList;
+    }
+
+    double getSystemRadius() {
+
+        double maximum = 0;
+        for (Body &body: bodyList)
+            maximum = max(maximum, body.position.norm());
+
+        return maximum;
     }
 
 };

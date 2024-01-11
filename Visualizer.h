@@ -10,7 +10,6 @@
 #include "Body.h"
 
 #define RAD 1
-#define SYSRAD 100
 
 using namespace std;
 using namespace Eigen;
@@ -45,14 +44,13 @@ private:
 
 public:
 
-    Visualizer(int winX, int winY):
+    Visualizer(int winX, int winY, double sysrad):
             window{sf::VideoMode(winX, winY), "NBP"} {
-
         view.setCenter(0, 0);
         view.setRotation(180);
         view.setSize(view.getSize().x, -view.getSize().y);
 
-        double scale = initialZoomFactor * SYSRAD;
+        double scale = initialZoomFactor * sysrad;
 
         view.setSize(-scale, scale * winY/winX);
 
@@ -62,24 +60,6 @@ public:
     bool isOpen() {
         return window.isOpen();
     }
-
-
-    //----THIS MESS IS RELATED TO ME REORGINIZING MY CODE:
-
-    //void simulate(Solver solver) {
-//
-//
-//
-    //        if (fmod(i*dt, 1) == 0) {
-//
-    //            vector<long double> quants = solver.quantsInfo();
-//
-    //            cout << "----------" << endl;
-    //            cout << "TIME: " << i*dt << endl;
-    //            compare(quants, initQuants);
-    //        }
-    //    }
-    //}
 
     void visualizationLoop(const vector<Body> &bodiesInfo) {
 

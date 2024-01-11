@@ -10,9 +10,8 @@ using namespace std;
 using namespace Eigen;
 
 
-#define COMPARE_QUANTS true
 #define VISUALIZE true
-
+#define COMPARE_QUANTS true
 
 
 class Runner {
@@ -20,8 +19,8 @@ class Runner {
     Solver solver;
     const Quantities initialQuantities = solver.quantities();
 
-    #ifdef VISUALIZE
-    Visualizer visuals{800, 800};
+    #if VISUALIZE
+    Visualizer visuals{800, 800, solver.getSystemRadius()};
     #endif
 
 private:
@@ -31,9 +30,16 @@ private:
     int i = 0;
 
     bool isWindowOpen() {
-        if (VISUALIZE)
-            return visuals.isOpen();
+#if VISUALIZE
+        return visuals.isOpen();
+#endif
         return true;
+    }
+
+    void visualizationLoop() {
+#if VISUALIZE
+        visuals.visualizationLoop(solver.getBodiesInfo());
+#endif
     }
 
     void quantComparison() {
@@ -53,12 +59,13 @@ public:
     void run() {
 
         while (isWindowOpen() && i < T/dt) {
+            
             i++;
 
             solver.passTime(dt);
 
             if (VISUALIZE)
-                visuals.visualizationLoop(solver.getBodiesInfo());
+                visualizationLoop();
 
             if (COMPARE_QUANTS)
                 quantComparison();
