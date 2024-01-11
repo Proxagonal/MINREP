@@ -11,12 +11,12 @@ using namespace Eigen;
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
+static const double G = 4*M_PI*M_PI;
 
 class Solver {
 
 private:
 
-    const double G = 4*M_PI*M_PI;
     const int subSteps = 2000;
 
     vector<Body> bodyList = initialConditions();
@@ -56,20 +56,11 @@ private:
 
         for (int i = 0; i < ORDER; i++) {
             updateAccelerations();
-            for (Body &body : bodyList)
+            for (Body &body : bodyList) {
                 body.velocity += C.at(i) * dt * body.acceleration;
-            for (Body &body : bodyList)
                 body.position += D.at(i) * dt * body.velocity;
+            }
         }
-
-    }
-
-    void doVerlet(double dt) {
-
-        updateAccelerations();
-
-        for (Body &body : bodyList)
-            body.verletNextStep(dt);
 
     }
 
@@ -169,10 +160,8 @@ public:
 
     void passTime(double dt) {
 
-        for (int i = 0; i < subSteps; i++) {
+        for (int i = 0; i < subSteps; i++)
             doSymplecticIntegrator(dt/subSteps);
-            //doVerlet(dt/subSteps);
-        }
 
     }
 

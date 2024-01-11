@@ -12,6 +12,8 @@ add_executable(MINREP
         Runner.h
 )
 
+add_compile_options(-O3)
+
 include_directories("include/eigen-3.4.0")
 
 set(SFML_DIR "include/SFML-2.6.0/lib/cmake/SFML")
