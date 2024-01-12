@@ -12,7 +12,11 @@ using namespace Eigen;
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
 
+static const double G = 4*M_PI*M_PI;
+
 class Solver {
+
+public:
 
 private:
 
@@ -22,9 +26,6 @@ private:
 
     vector<Body> bodyList = initialConditions();
     const double totalMass = calcMass();
-
-    array<double, ORDER> dtC;
-    array<double, ORDER> dtD;
 
 
     //returns initial conditions of system
@@ -46,7 +47,7 @@ private:
         for (int i = 0; i < 3; i++) {
             pos = rad*Vector2d(cosine.at(i), sine.at(i));
             vel = speed*Vector2d(-sine.at(i), cosine.at(i));
-            list.emplace_back(1.13234367832 * i,
+            list.emplace_back(1.13234367832 * (i+1),
                            pos,
                            vel);
         }
@@ -65,7 +66,6 @@ private:
                 body.position += D.at(i) * dt * body.velocity;
             }
         }
-
     }
 
     void updateAccelerations() {
@@ -81,8 +81,8 @@ private:
             {
 
                 mutualVector = directedInverseSquare(body1->position, body2->position);
-                body1->acceleration += body2->gMass * mutualVector;
-                body2->acceleration += - body1->gMass * mutualVector;
+                body1->acceleration += body2->mass * G * mutualVector;
+                body2->acceleration += - body1->mass * G * mutualVector;
             }
     }
 
@@ -163,12 +163,6 @@ public:
 
     Solver(double dtFrame): frameDt{dtFrame}, dt{dtFrame/subSteps} {
         transformToCOMSystem();
-
-        for (int i = 0; i < ORDER; i++) {
-            dtC.at(i) = dt * C.at(i);
-            dtD.at(i) = dt * D.at(i);
-        }
-
     }
 
     void passTime() {

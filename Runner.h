@@ -18,7 +18,7 @@ class Runner {
 
 private:
 
-    const int T = 1000;
+    const int T = 100;
     const double dt = 0.001;
     int i = 0;
 
@@ -72,7 +72,6 @@ public:
             if (COMPARE_QUANTS)
                 quantComparison();
         }
-
     }
 
 };
