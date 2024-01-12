@@ -17,6 +17,7 @@ class Solver {
 private:
 
     const int subSteps = 2000;
+    const double dt;
 
     vector<Body> bodyList = initialConditions();
     const double totalMass = calcMass();
@@ -41,7 +42,7 @@ private:
         for (int i = 0; i < 3; i++) {
             pos = rad*Vector2d(cosine.at(i), sine.at(i));
             vel = speed*Vector2d(-sine.at(i), cosine.at(i));
-            list.emplace_back(1.0,
+            list.emplace_back(1.13234367832 * i,
                            pos,
                            vel);
         }
@@ -156,11 +157,11 @@ private:
 
 public:
 
-    Solver() {
+    Solver(double constDt): dt{constDt} {
         transformToCOMSystem();
     }
 
-    void passTime(double dt) {
+    void passTime() {
 
         for (int i = 0; i < subSteps; i++)
             doSymplecticIntegrator(dt/subSteps);

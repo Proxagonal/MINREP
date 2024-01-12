@@ -25,7 +25,7 @@ class Runner {
 
 private:
 
-    const int T = 100;
+    const int T = 1000;
     const double dt = 0.001;
     int i = 0;
 
