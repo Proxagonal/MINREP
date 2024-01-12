@@ -24,7 +24,7 @@ private:
 
     //returns initial conditions of system
     vector<Body> initialConditions() {
-        cout << sizeof(Body);
+        //cout << sizeof(Body);
 
         vector<Body> list;
 
