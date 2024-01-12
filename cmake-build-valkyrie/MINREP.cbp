@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="MINREP"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="gcc"/>
+		<Option virtualFolders="CMake Files\;CMake Files\include\;CMake Files\include\SFML-2.6.0\;CMake Files\include\SFML-2.6.0\lib\;CMake Files\include\SFML-2.6.0\lib\cmake\;CMake Files\include\SFML-2.6.0\lib\cmake\SFML\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="MINREP">
+				<Option output="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/MINREP" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/eigen-3.4.0"/>
+					<Add directory="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/SFML-2.6.0/include"/>
+					<Add directory="/usr/include/c++/11"/>
+					<Add directory="/usr/include/x86_64-linux-gnu/c++/11"/>
+					<Add directory="/usr/include/c++/11/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-linux-gnu/11/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/usr/include/x86_64-linux-gnu"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 MINREP"/>
+					<CompileFile command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="MINREP/fast">
+				<Option output="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/MINREP" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/eigen-3.4.0"/>
+					<Add directory="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/SFML-2.6.0/include"/>
+					<Add directory="/usr/include/c++/11"/>
+					<Add directory="/usr/include/x86_64-linux-gnu/c++/11"/>
+					<Add directory="/usr/include/c++/11/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-linux-gnu/11/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/usr/include/x86_64-linux-gnu"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 MINREP/fast"/>
+					<CompileFile command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="edit_cache">
+				<Option working_dir="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 edit_cache"/>
+					<CompileFile command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="rebuild_cache">
+				<Option working_dir="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
+					<CompileFile command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j8 -f &quot;/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/Body.h">
+			<Option target="MINREP"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/Quantities.h">
+			<Option target="MINREP"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/Runner.h">
+			<Option target="MINREP"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/Solver.h">
+			<Option target="MINREP"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/Visualizer.h">
+			<Option target="MINREP"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/main.cpp">
+			<Option target="MINREP"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/SFML-2.6.0/lib/cmake/SFML/SFMLConfig.cmake">
+			<Option virtualFolder="CMake Files\include\SFML-2.6.0\lib\cmake\SFML\"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/SFML-2.6.0/lib/cmake/SFML/SFMLConfigDependencies.cmake">
+			<Option virtualFolder="CMake Files\include\SFML-2.6.0\lib\cmake\SFML\"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/SFML-2.6.0/lib/cmake/SFML/SFMLConfigVersion.cmake">
+			<Option virtualFolder="CMake Files\include\SFML-2.6.0\lib\cmake\SFML\"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/SFML-2.6.0/lib/cmake/SFML/SFMLSharedTargets-debug.cmake">
+			<Option virtualFolder="CMake Files\include\SFML-2.6.0\lib\cmake\SFML\"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/SFML-2.6.0/lib/cmake/SFML/SFMLSharedTargets-release.cmake">
+			<Option virtualFolder="CMake Files\include\SFML-2.6.0\lib\cmake\SFML\"/>
+		</Unit>
+		<Unit filename="/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/SFML-2.6.0/lib/cmake/SFML/SFMLSharedTargets.cmake">
+			<Option virtualFolder="CMake Files\include\SFML-2.6.0\lib\cmake\SFML\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>

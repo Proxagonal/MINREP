@@ -8,21 +8,22 @@
 using namespace std;
 using namespace Eigen;
 
+static const double G = 4*M_PI*M_PI;
 
 struct Body {
-
-    //biggest first
-    //has 8 bytes padding -> 64
 
     Vector2d position;
     Vector2d velocity;
     Vector2d acceleration = Vector2d(0,0);
     double mass;
+    //due to padding, the size of Body with gMass and without is the same, so no cost
+    double gMass;
 
     Body(double mass, Vector2d pos, Vector2d vel) {
         this->mass = mass;
         position = pos;
         velocity = vel;
+        gMass = G * mass;
     };
 
     double kineticEnergy() {

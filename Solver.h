@@ -11,7 +11,6 @@ using namespace Eigen;
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
-static const double G = 4*M_PI*M_PI;
 
 class Solver {
 
@@ -25,6 +24,7 @@ private:
 
     //returns initial conditions of system
     vector<Body> initialConditions() {
+        cout << sizeof(Body);
 
         vector<Body> list;
 
@@ -39,12 +39,11 @@ private:
         Vector2d vel;
 
         for (int i = 0; i < 3; i++) {
-            double theta = i*2*M_PI/3;
             pos = rad*Vector2d(cosine.at(i), sine.at(i));
             vel = speed*Vector2d(-sine.at(i), cosine.at(i));
             list.emplace_back(1.0,
-                              pos,
-                              vel);
+                           pos,
+                           vel);
         }
 
         return list;
@@ -65,28 +64,28 @@ private:
     }
 
     void updateAccelerations() {
-        for (Body &body : bodyList)
-            body.acceleration = totalGravitationalAccelerationOf(body);
+
+        Vector2d mutualVector;
+
+        for (auto body1 = bodyList.begin(); body1 != bodyList.end(); ++body1)
+            for (auto body2 = body1 + 1; body2 != bodyList.end(); ++body2)
+            {
+
+                mutualVector = directedInverseSquare(body1->position, body2->position);
+                body1->acceleration = body2->gMass * mutualVector;
+                body2->acceleration = - body1->gMass * mutualVector;
+
+            }
     }
 
-    Vector2d totalGravitationalAccelerationOf(Body &body) {
-
-        Vector2d acc(0, 0);
-
-        for (Body &otherBody : bodyList)
-            if (body.vectorTo(otherBody).norm() != 0)
-                acc += gravitationalAccelerationOf(body, otherBody);
-
-        return acc;
-    };
-
     //acceleration exerted by body2, on body1
-    Vector2d gravitationalAccelerationOf(Body &body1, Body &body2) {
+    Vector2d directedInverseSquare(Vector2d pos1, Vector2d pos2) {
 
-        Vector2d rHat = body1.vectorTo(body2).normalized();
-        double rSquared = body1.vectorTo(body2).squaredNorm();
+        Vector2d diff = pos2 - pos1;
+        Vector2d rHat = diff.normalized();
+        double rSquared = diff.squaredNorm();
 
-        return rHat * G * body2.mass/rSquared;
+        return rHat / rSquared;
     };
 
     //calculates potential energy
@@ -134,13 +133,13 @@ private:
 
         double mass = 0;
 
-        for (Body body : bodyList)
+        for (Body &body : bodyList)
             mass += body.mass;
 
         return mass;
     }
 
-    void tranformToCOMSystem() {
+    void transformToCOMSystem() {
 
         Vector2d COM = calcCOM();
         Vector2d COMVel = calcCOMVelocity();
@@ -155,7 +154,7 @@ private:
 public:
 
     Solver() {
-        tranformToCOMSystem();
+        transformToCOMSystem();
     }
 
     void passTime(double dt) {

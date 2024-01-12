@@ -1,0 +1,1 @@
+/usr/bin/c++ -g CMakeFiles/MINREP.dir/main.cpp.o -o MINREP  -Wl,-rpath,/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/include/SFML-2.6.0/bin ../include/SFML-2.6.0/bin/sfml-graphics-d-2.dll ../include/SFML-2.6.0/bin/sfml-window-d-2.dll ../include/SFML-2.6.0/bin/sfml-system-d-2.dll 
