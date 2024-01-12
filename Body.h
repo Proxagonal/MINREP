@@ -27,6 +27,7 @@ struct Body {
     };
 
     double kineticEnergy() {
+        cout << momentum().squaredNorm()/(2 * mass) << endl;
         return momentum().squaredNorm()/(2 * mass);
     };
 

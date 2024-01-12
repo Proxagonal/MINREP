@@ -10,24 +10,26 @@ using namespace std;
 using namespace Eigen;
 
 
-#define VISUALIZE false
-#define COMPARE_QUANTS false
+#define VISUALIZE true
+#define COMPARE_QUANTS true
 
 
 class Runner {
-
-    Solver solver;
-    const Quantities initialQuantities = solver.quantities();
-
-    #if VISUALIZE
-    Visualizer visuals{800, 800, solver.getSystemRadius()};
-    #endif
 
 private:
 
     const int T = 1000;
     const double dt = 0.001;
     int i = 0;
+
+    Solver solver{dt};
+    const Quantities initialQuantities = solver.quantities();
+
+#if VISUALIZE
+    Visualizer visuals{800, 800, solver.getSystemRadius()};
+#endif
+
+
 
     bool isWindowOpen() {
 #if VISUALIZE
@@ -62,7 +64,7 @@ public:
 
             i++;
 
-            solver.passTime(dt);
+            solver.passTime();
 
             if (VISUALIZE)
                 visualizationLoop();

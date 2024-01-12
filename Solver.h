@@ -17,10 +17,14 @@ class Solver {
 private:
 
     const int subSteps = 2000;
+    const double frameDt;
     const double dt;
 
     vector<Body> bodyList = initialConditions();
     const double totalMass = calcMass();
+
+    array<double, ORDER> dtC;
+    array<double, ORDER> dtD;
 
 
     //returns initial conditions of system
@@ -52,7 +56,7 @@ private:
     }
 
 
-    void doSymplecticIntegrator(double dt) {
+    void doSymplecticIntegrator() {
 
         for (int i = 0; i < ORDER; i++) {
             updateAccelerations();
@@ -157,14 +161,20 @@ private:
 
 public:
 
-    Solver(double constDt): dt{constDt} {
+    Solver(double dtFrame): frameDt{dtFrame}, dt{dtFrame/subSteps} {
         transformToCOMSystem();
+
+        for (int i = 0; i < ORDER; i++) {
+            dtC.at(i) = dt * C.at(i);
+            dtD.at(i) = dt * D.at(i);
+        }
+
     }
 
     void passTime() {
 
         for (int i = 0; i < subSteps; i++)
-            doSymplecticIntegrator(dt/subSteps);
+            doSymplecticIntegrator();
 
     }
 
