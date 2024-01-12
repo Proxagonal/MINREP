@@ -67,14 +67,17 @@ private:
 
         Vector2d mutualVector;
 
+        for (Body &body : bodyList)
+            body.acceleration = Vector2d(0,0);
+
+
         for (auto body1 = bodyList.begin(); body1 != bodyList.end(); ++body1)
             for (auto body2 = body1 + 1; body2 != bodyList.end(); ++body2)
             {
 
                 mutualVector = directedInverseSquare(body1->position, body2->position);
-                body1->acceleration = body2->gMass * mutualVector;
-                body2->acceleration = - body1->gMass * mutualVector;
-
+                body1->acceleration += body2->gMass * mutualVector;
+                body2->acceleration += - body1->gMass * mutualVector;
             }
     }
 

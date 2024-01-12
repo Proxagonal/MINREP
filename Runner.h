@@ -10,7 +10,7 @@ using namespace std;
 using namespace Eigen;
 
 
-#define VISUALIZE false
+#define VISUALIZE true
 #define COMPARE_QUANTS true
 
 
@@ -25,8 +25,8 @@ class Runner {
 
 private:
 
-    const int T = 100;
-    const double dt = 0.001;
+    const int T = 1000;
+    const double dt = 0.01;
     int i = 0;
 
     bool isWindowOpen() {
