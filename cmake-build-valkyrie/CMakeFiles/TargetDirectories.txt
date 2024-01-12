@@ -1,3 +1,0 @@
-/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/CMakeFiles/MINREP.dir
-/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/CMakeFiles/edit_cache.dir
-/mnt/c/Users/eitan/Desktop/NBPSPACE/MINREP/cmake-build-valkyrie/CMakeFiles/rebuild_cache.dir
