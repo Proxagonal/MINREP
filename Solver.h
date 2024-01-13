@@ -21,7 +21,6 @@ public:
 private:
 
     const int subSteps = 2000;
-    const double frameDt;
     const double dt;
 
     vector<Body> bodyList = initialConditions();
@@ -161,7 +160,7 @@ private:
 
 public:
 
-    Solver(double dtFrame): frameDt{dtFrame}, dt{dtFrame/subSteps} {
+    Solver(double frameTime): dt{frameTime/subSteps} {
         transformToCOMSystem();
     }
 

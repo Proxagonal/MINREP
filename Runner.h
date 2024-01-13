@@ -19,7 +19,7 @@ class Runner {
 private:
 
     const int T = 100;
-    const double dt = 0.001;
+    const double frameTime = 0.001;
     int i = 0;
 
     Solver solver{dt};
