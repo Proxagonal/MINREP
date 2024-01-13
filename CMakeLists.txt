@@ -16,6 +16,8 @@ add_compile_options(-O3)
 
 include_directories("include/eigen-3.4.0")
 
+set(SFML_DIR "include/SFML-2.6.1/lib/cmake/SFML")
+
 find_package(SFML COMPONENTS graphics window REQUIRED)
 
 target_link_libraries(MINREP PUBLIC sfml-graphics sfml-window)
