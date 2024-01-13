@@ -8,10 +8,6 @@
 using namespace std;
 using namespace Eigen;
 
-#define ORDER 4
-static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
-static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
-
 static const double G = 4*M_PI*M_PI;
 
 class Solver {
@@ -65,6 +61,10 @@ private:
                 body.position += D.at(i) * dt * body.velocity;
             }
         }
+    }
+
+    void doVerlet() {
+
     }
 
     void updateAccelerations() {
@@ -167,7 +167,7 @@ public:
     void passTime() {
 
         for (int i = 0; i < subSteps; i++)
-            doSymplecticIntegrator();
+            doVerlet();
 
     }
 
