@@ -58,25 +58,6 @@ private:
             body.pushPosition(2*body.position - body.lastPosition + body.acceleration * dt*dt);
     }
 
-    vector<Body> initiateBodies(vector<initialBody> bods) {
-
-
-        transformToCOMSystem(bods);
-
-        vector<Body> list;
-
-        updateAccelerations(bods);
-
-        for (initialBody &bod : bods) {
-            list.emplace_back(bod.mass, bod.position);
-            list.back().position = bod.position + bod.velocity * dt + bod.acceleration*dt*dt/2;
-        }
-
-
-
-        return list;
-    }
-
     void updateAccelerations() {
 
         Vector2d mutualVector;
@@ -93,6 +74,22 @@ private:
                 body1->acceleration += body2->mass * G * mutualVector;
                 body2->acceleration += - body1->mass * G * mutualVector;
             }
+    }
+
+    vector<Body> initiateBodies(vector<initialBody> bods) {
+
+        transformToCOMSystem(bods);
+
+        vector<Body> list;
+
+        updateAccelerations(bods);
+
+        for (initialBody &bod : bods) {
+            list.emplace_back(bod.mass, bod.position);
+            list.back().position = bod.position + bod.velocity * dt + bod.acceleration*dt*dt/2;
+        }
+
+        return list;
     }
 
     void updateAccelerations(vector<initialBody> &bods) {
@@ -114,7 +111,7 @@ private:
     }
 
     //acceleration exerted by body2, on body1
-    Vector2d directedInverseSquare(Vector2d pos1, Vector2d pos2) {
+    Vector2d directedInverseSquare(Vector2d &pos1, Vector2d &pos2) {
 
         Vector2d diff = pos2 - pos1;
         Vector2d rHat = diff.normalized();
