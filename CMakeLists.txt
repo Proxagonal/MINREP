@@ -10,6 +10,7 @@ add_executable(MINREP
         Visualizer.h
         Quantities.h
         Runner.h
+        initialBody.h
 )
 
 add_compile_options(-O3)

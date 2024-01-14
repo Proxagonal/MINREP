@@ -18,11 +18,11 @@ class Runner {
 
 private:
 
-    const int T = 100;
+    const int T = 1000;
     const double frameTime = 0.001;
     int i = 0;
 
-    Solver solver{dt};
+    Solver solver{frameTime};
     const Quantities initialQuantities = solver.quantities();
 
 #if VISUALIZE
@@ -45,10 +45,10 @@ private:
     }
 
     void quantComparison() {
-        if (fmod(i*dt, 5) == 0) {
+        if (fmod(i*frameTime, 5) == 0) {
 
             cout << "----------" << endl;
-            cout << "TIME: " << i*dt << endl;
+            cout << "TIME: " << i*frameTime << endl;
             Quantities::compare(solver.quantities(), initialQuantities);
         }
     }
@@ -60,7 +60,7 @@ public:
 
     void run() {
 
-        while (isWindowOpen() && i < T/dt) {
+        while (isWindowOpen() && i*frameTime < T) {
 
             i++;
 
