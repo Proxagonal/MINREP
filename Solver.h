@@ -86,7 +86,7 @@ private:
     }
 
     //acceleration exerted by body2, on body1
-    Vector2d directedInverseSquare(Vector2d pos1, Vector2d pos2) {
+    Vector2d directedInverseSquare(Vector2d &pos1, Vector2d &pos2) {
 
         Vector2d diff = pos2 - pos1;
         Vector2d rHat = diff.normalized();
