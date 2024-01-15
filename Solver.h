@@ -2,15 +2,11 @@
 #define MINREP_SOLVER_H
 
 #include <Eigen/Eigen>
-#include "Body.h"
+#include "Bodyfold.h"
 #include "Quantities.h"
 
 using namespace std;
 using namespace Eigen;
-
-#define ORDER 4
-static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
-static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
 
 static const double G = 4*M_PI*M_PI;
 
@@ -23,15 +19,17 @@ private:
     const int subSteps = 2000;
     const double dt;
 
-    vector<Body> bodyList = initialConditions();
+    Bodyfold bodyfold{initialConditions()};
     const double totalMass = calcMass();
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
 
     //returns initial conditions of system
-    vector<Body> initialConditions() {
-        //cout << sizeof(Body);
+    vector<tuple<double, Vector2d, Vector2d>> initialConditions() {
 
-        vector<Body> list;
+        vector<tuple<double, Vector2d, Vector2d>> list;
 
         vector<double> sine = {1, 1.5, -2.5};
         vector<double> cosine = {1.5, 4.5, -1.5};
@@ -55,6 +53,7 @@ private:
 
     }
 
+<<<<<<< Updated upstream
 
     void doSymplecticIntegrator() {
 
@@ -68,6 +67,9 @@ private:
     }
 
     void updateAccelerations() {
+=======
+    void updateAccelerations(Vector6d ) {
+>>>>>>> Stashed changes
 
         Vector2d mutualVector;
 
@@ -138,12 +140,12 @@ private:
 
     double calcMass() {
 
-        double mass = 0;
+        double total = 0;
 
-        for (Body &body : bodyList)
-            mass += body.mass;
+        for (double mass : bodyfold.massList)
+            total += mass;
 
-        return mass;
+        return total;
     }
 
     void transformToCOMSystem() {
