@@ -16,8 +16,6 @@ static const double G = 4*M_PI*M_PI;
 
 class Solver {
 
-public:
-
 private:
 
     const int subSteps = 2000;
@@ -25,6 +23,7 @@ private:
 
     vector<Body> bodyList = initialConditions();
     const double totalMass = calcMass();
+    const int NUM = initialConditions().size();
 
 
     //returns initial conditions of system
@@ -78,7 +77,7 @@ private:
         for (auto body1 = bodyList.begin(); body1 != bodyList.end(); ++body1)
             for (auto body2 = body1 + 1; body2 != bodyList.end(); ++body2)
             {
-
+                cout << body1->mass << endl;
                 mutualVector = directedInverseSquare(body1->position, body2->position);
                 body1->acceleration += body2->mass * G * mutualVector;
                 body2->acceleration += - body1->mass * G * mutualVector;
