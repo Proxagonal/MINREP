@@ -10,8 +10,8 @@ using namespace std;
 using namespace Eigen;
 
 
-#define VISUALIZE true
-#define COMPARE_QUANTS true
+#define VISUALIZE false
+#define COMPARE_QUANTS false
 
 
 class Runner {

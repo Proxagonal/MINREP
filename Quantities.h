@@ -47,6 +47,7 @@ public:
     }
 
     static void compare(Quantities now, Quantities init) {
+        //return;
 
         // kinetic energy and potential energy aren't supposed to be conserved, so I don't print them
         for (int i = 0; i<SIZE; i++) {

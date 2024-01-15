@@ -44,7 +44,7 @@ private:
         for (int i = 0; i < 3; i++) {
             pos = rad*Vector2d(cosine.at(i), sine.at(i));
             vel = speed*Vector2d(-sine.at(i), cosine.at(i));
-            bods.emplace_back(1.13234367832 * (i+1),
+            bods.emplace_back(1.13234367832 * (i+1)*0+1,
                            pos,
                            vel);
         }
@@ -215,6 +215,8 @@ public:
             momy += body.momentum(dt).y();
             kin += body.kineticEnergy(dt);
         }
+
+        //return {1,1,1,1,1};
 
         return {momx, momy, 1, kin, pot};
     };

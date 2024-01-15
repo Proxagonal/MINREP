@@ -33,6 +33,7 @@ struct Body {
     };
 
     Vector2d velocity(double dt) {
+        //cout << ((position - lastPosition)/dt).transpose() << endl;
         return (position - lastPosition)/dt;
     }
 
