@@ -25,7 +25,6 @@ private:
     const double totalMass = calcMass();
     const int NUM = initialConditions().size();
 
-
     //returns initial conditions of system
     vector<Body> initialConditions() {
         //cout << sizeof(Body);
@@ -51,17 +50,15 @@ private:
         }
 
         return list;
-
     }
-
 
     void doSymplecticIntegrator() {
 
         for (int i = 0; i < ORDER; i++) {
             updateAccelerations();
             for (Body &body : bodyList) {
-                body.velocity += C.at(i) * dt * body.acceleration;
-                body.position += D.at(i) * dt * body.velocity;
+                body.velocity += C[i] * dt * body.acceleration;
+                body.position += D[i] * dt * body.velocity;
             }
         }
     }
@@ -77,7 +74,6 @@ private:
         for (auto body1 = bodyList.begin(); body1 != bodyList.end(); ++body1)
             for (auto body2 = body1 + 1; body2 != bodyList.end(); ++body2)
             {
-                cout << body1->mass << endl;
                 mutualVector = directedInverseSquare(body1->position, body2->position);
                 body1->acceleration += body2->mass * G * mutualVector;
                 body2->acceleration += - body1->mass * G * mutualVector;
@@ -200,7 +196,6 @@ public:
 
         return maximum;
     }
-
 };
 
 #endif
