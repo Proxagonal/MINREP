@@ -58,7 +58,6 @@ private:
             for (int i = 0; i < NUM; i++) {
                 bodyfold.velList[i] += C[p] * dt * bodyfold.accList[i];
                 bodyfold.posList[i] += D[p] * dt * bodyfold.velList[i];
-                //try reset acceleration here
             }
         }
     }
@@ -69,15 +68,6 @@ private:
 
         for (Vector2d &acc : bodyfold.accList)
             acc.setZero();
-
-
-        //for (auto body1 = bodyList.begin(); body1 != bodyList.end(); ++body1)
-        //    for (auto body2 = body1 + 1; body2 != bodyList.end(); ++body2)
-        //    {
-        //        mutualVector = directedInverseSquare(body1->position, body2->position);
-        //        body1->acceleration += body2->mass * G * mutualVector;
-        //        body2->acceleration += - body1->mass * G * mutualVector;
-        //    }
 
         for (int i = 0; i < NUM; i++)
             for (int j = i + 1; j < NUM; j++) {
