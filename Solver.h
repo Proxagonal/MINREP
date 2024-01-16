@@ -2,7 +2,7 @@
 #define MINREP_SOLVER_H
 
 #include <Eigen/Eigen>
-#include "Body.h"
+#include "Bodyfold.h"
 #include "Quantities.h"
 
 using namespace std;
@@ -21,15 +21,14 @@ private:
     const int subSteps = 2000;
     const double dt;
 
-    vector<Body> bodyList = initialConditions();
-    const double totalMass = calcMass();
-    const int NUM = initialConditions().size();
+    Bodyfold bodyfold{initialConditions()};
+    const double totalMass = bodyfold.sumMass();
 
     //returns initial conditions of system
-    vector<Body> initialConditions() {
+    initialData initialConditions() {
         //cout << sizeof(Body);
 
-        vector<Body> list;
+        initialData list;
 
         vector<double> sine = {1, 1.5, -2.5};
         vector<double> cosine = {1.5, 4.5, -1.5};
@@ -54,11 +53,12 @@ private:
 
     void doSymplecticIntegrator() {
 
-        for (int i = 0; i < ORDER; i++) {
+        for (int p = 0; p < ORDER; p++) {
             updateAccelerations();
-            for (Body &body : bodyList) {
-                body.velocity += C[i] * dt * body.acceleration;
-                body.position += D[i] * dt * body.velocity;
+            for (int i = 0; i < NUM; i++) {
+                bodyfold.velList[i] += C[p] * dt * bodyfold.accList[i];
+                bodyfold.posList[i] += D[p] * dt * bodyfold.velList[i];
+                //try reset acceleration here
             }
         }
     }
@@ -67,16 +67,23 @@ private:
 
         Vector2d mutualVector;
 
-        for (Body &body : bodyList)
-            body.acceleration = Vector2d(0,0);
+        for (Vector2d &acc : bodyfold.accList)
+            acc.setZero();
 
 
-        for (auto body1 = bodyList.begin(); body1 != bodyList.end(); ++body1)
-            for (auto body2 = body1 + 1; body2 != bodyList.end(); ++body2)
-            {
-                mutualVector = directedInverseSquare(body1->position, body2->position);
-                body1->acceleration += body2->mass * G * mutualVector;
-                body2->acceleration += - body1->mass * G * mutualVector;
+        //for (auto body1 = bodyList.begin(); body1 != bodyList.end(); ++body1)
+        //    for (auto body2 = body1 + 1; body2 != bodyList.end(); ++body2)
+        //    {
+        //        mutualVector = directedInverseSquare(body1->position, body2->position);
+        //        body1->acceleration += body2->mass * G * mutualVector;
+        //        body2->acceleration += - body1->mass * G * mutualVector;
+        //    }
+
+        for (int i = 0; i < NUM; i++)
+            for (int j = i + 1; j < NUM; j++) {
+                mutualVector = directedInverseSquare(bodyfold.posList[i], bodyfold.posList[j]);
+                bodyfold.accList[i] += bodyfold.massList[j] * G * mutualVector;
+                bodyfold.accList[j] += - bodyfold.massList[i] * G * mutualVector;
             }
     }
 
@@ -95,13 +102,21 @@ private:
 
         double total = 0;
 
-        for (Body &body1 : bodyList) {
-            for (Body &body2: bodyList) {
-                if (&body1 != &body2) {
-                    total += ((double)(-G * body1.mass * body2.mass)) / (double)body1.vectorTo(body2).norm();
-                }
+        //for (Body &body1 : bodyList) {
+        //    for (Body &body2: bodyList) {
+        //        if (&body1 != &body2) {
+        //            total += ((double)(-G * body1.mass * body2.mass)) / (double)body1.vectorTo(body2).norm();
+        //        }
+        //    }
+        //}
+
+        for (int i = 0; i < NUM; i++)
+            for (int j = 0; j < NUM; j++)
+            {
+                if (i != j)
+                    total += ((double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
+
             }
-        }
 
         return total/2;
     }
@@ -110,35 +125,15 @@ private:
 
         Vector2d com(0,0);
 
-        for (Body &body : bodyList)
-            com += body.mass * body.position;
+        for (int i = 0; i < NUM; i++)
+            com += bodyfold.massList[i] * bodyfold.posList[i];
 
         return com/totalMass;
     }
 
-    Vector2d calcMomentum() {
-
-        Vector2d momentum(0, 0);
-
-        for (Body &body : bodyList)
-            momentum += body.momentum();
-
-        return momentum;
-    }
-
     Vector2d calcCOMVelocity() {
 
-        return calcMomentum()/totalMass;
-    }
-
-    double calcMass() {
-
-        double mass = 0;
-
-        for (Body &body : bodyList)
-            mass += body.mass;
-
-        return mass;
+        return bodyfold.sumMomentum()/totalMass;
     }
 
     void transformToCOMSystem() {
@@ -146,9 +141,9 @@ private:
         Vector2d COM = calcCOM();
         Vector2d COMVel = calcCOMVelocity();
 
-        for (Body &body : bodyList) {
-            body.position -= COM;
-            body.velocity -= COMVel;
+        for (int i = 0; i < NUM; i++) {
+            bodyfold.posList[i] -= COM;
+            bodyfold.velList[i] -= COMVel;
         }
     }
 
@@ -169,30 +164,23 @@ public:
     //calculates important quantities
     Quantities quantities() {
 
-        double momx = 0;
-        double momy = 0;
-        double kin = 0;
+        Vector2d mom = bodyfold.sumMomentum();
+        double kin = bodyfold.sumKineticEnergy();
 
         double pot = calcPotential();
 
-        for (Body body : bodyList) {
-            momx += body.momentum().x();
-            momy += body.momentum().y();
-            kin += body.kineticEnergy();
-        }
-
-        return {momx, momy, 1, kin, pot};
+        return {mom.x(), mom.y(), 1, kin, pot};
     };
 
-    const vector<Body> &getBodiesInfo() {
-        return bodyList;
+    const vData &getDrawInfo() {
+        return bodyfold.posList;
     }
 
     double getSystemRadius() {
 
         double maximum = 0;
-        for (Body &body: bodyList)
-            maximum = max(maximum, body.position.norm());
+        for (int i = 0; i < NUM; i++)
+            maximum = max(maximum, bodyfold.posList[i].norm());
 
         return maximum;
     }

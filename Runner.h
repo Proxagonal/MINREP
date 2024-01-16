@@ -40,7 +40,7 @@ private:
 
     void visualizationLoop() {
 #if VISUALIZE
-        visuals.visualizationLoop(solver.getBodiesInfo());
+        visuals.visualizationLoop(solver.getDrawInfo());
 #endif
     }
 

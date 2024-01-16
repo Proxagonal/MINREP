@@ -7,7 +7,6 @@
 #include <SFML/Window.hpp>
 #include <SFML/System.hpp>
 #include "Solver.h"
-#include "Body.h"
 
 #define RAD 1
 
@@ -24,13 +23,13 @@ private:
     sf::RenderWindow window;
     sf::View view;
 
-    void drawBody(Body &body) {
+    void drawPos(const Vector2d &pos) {
 
         sf::CircleShape shape(RAD);
 
         shape.setFillColor(sf::Color::White);
         shape.setOrigin(RAD, RAD);
-        shape.setPosition(body.position.x(), body.position.y());
+        shape.setPosition(pos.x(), pos.y());
 
         window.draw(shape);
     }
@@ -61,7 +60,7 @@ public:
         return window.isOpen();
     }
 
-    void visualizationLoop(const vector<Body> &bodiesInfo) {
+    void visualizationLoop(const array<Vector2d, NUM> &posList) {
 
         sf::Event event;
 
@@ -78,8 +77,8 @@ public:
 
         window.clear();
 
-        for (Body body: bodiesInfo)
-            drawBody(body);
+        for (Vector2d pos : posList)
+            drawPos(pos);
 
         window.display();
     }

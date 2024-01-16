@@ -6,10 +6,10 @@ set(CMAKE_CXX_STANDARD 23)
 add_executable(MINREP
         main.cpp
         Solver.h
-        Body.h
         Visualizer.h
         Quantities.h
         Runner.h
+        Bodyfold.h
 )
 
 #remove flag
