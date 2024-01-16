@@ -12,7 +12,7 @@ add_executable(MINREP
         Bodyfold.h
 )
 
-add_compile_options(-O3)
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
 
 include_directories("include/eigen-3.4.0")
 
