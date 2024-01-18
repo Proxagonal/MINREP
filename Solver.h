@@ -14,6 +14,8 @@ static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2
 
 static const double G = 4*M_PI*M_PI;
 
+typedef uint_fast8_t nat;
+
 class Solver {
 
 private:
@@ -53,9 +55,9 @@ private:
 
     void doSymplecticIntegrator() {
 
-        for (int p = 0; p < ORDER; p++) {
+        for (nat p = 0; p < ORDER; p++) {
             updateAccelerations();
-            for (int i = 0; i < NUM; i++) {
+            for (nat i = 0; i < NUM; i++) {
                 bodyfold.velList[i] += C[p] * dt * bodyfold.accList[i];
                 bodyfold.posList[i] += D[p] * dt * bodyfold.velList[i];
             }
@@ -69,15 +71,15 @@ private:
         for (Vector2d &acc : bodyfold.accList)
             acc.setZero();
 
-        for (int i = 0; i < NUM; i++)
-            for (int j = i + 1; j < NUM; j++) {
-                mutualVector = directedInverseSquare(bodyfold.posList[i], bodyfold.posList[j]);
-                bodyfold.accList[i] += bodyfold.massList[j] * G * mutualVector;
-                bodyfold.accList[j] += - bodyfold.massList[i] * G * mutualVector;
-            }
+        nat j;
+        for (nat i = 0; i < NUM; i++) {
+            j = (i+1)%NUM;
+            mutualVector = directedInverseSquare(bodyfold.posList[i], bodyfold.posList[j]);
+            bodyfold.accList[i] += bodyfold.massList[j] * G * mutualVector;
+            bodyfold.accList[j] += - bodyfold.massList[i] * G * mutualVector;
+        }
     }
 
-    //acceleration exerted by body2, on body1
     Vector2d directedInverseSquare(Vector2d &pos1, Vector2d &pos2) {
 
         Vector2d diff = pos2 - pos1;
@@ -85,7 +87,15 @@ private:
         double rSquared = diff.squaredNorm();
 
         return rHat / rSquared;
-    };
+    }
+
+    Vector2d directedInverseSquareLutz(Vector2d &pos1, Vector2d &pos2) {
+
+        Vector2d diff = pos2 - pos1;
+        double rSquared = diff.squaredNorm();
+
+        return diff / (rSquared * sqrt(rSquared));
+    }
 
     //calculates potential energy
     double calcPotential() {

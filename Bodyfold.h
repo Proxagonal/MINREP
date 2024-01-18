@@ -15,6 +15,7 @@ typedef array<Vector2d, NUM> vData;
 typedef array<double, NUM> Data;
 
 
+
 struct Bodyfold {
 
     vData posList;
