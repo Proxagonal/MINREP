@@ -27,60 +27,31 @@ private:
     const double totalMass = bodyfold.sumMass();
 
     //returns initial conditions of system
-    //initialData initialConditions() {
-    //    //cout << sizeof(Body);
-//
-    //    initialData list;
-//
-    //    vector<double> sine = {1, 1.5, -2.5};
-    //    vector<double> cosine = {1.5, 4.5, -1.5};
-//
-//
-    //    double rad = 20;
-    //    double speed = 0;
-//
-    //    Vector2d pos;
-    //    Vector2d vel;
-//
-    //    for (int i = 0; i < 3; i++) {
-    //        pos = rad*Vector2d(cosine.at(i), sine.at(i));
-    //        vel = speed*Vector2d(-sine.at(i), cosine.at(i));
-    //        list.emplace_back(1.13234367832 * (i+1),
-    //                       pos,
-    //                       vel);
-    //    }
-//
-    //    return list;
-    //}
-
     initialData initialConditions() {
-
-        double x0 = 15;
-        double vx0 = 1;
-        double y0 = 10;
-        double v0 = 1;
-        double m = 0.5;
-        double delta = 0;
-        double vdelta = 1;
-
+        //cout << sizeof(Body);
 
         initialData list;
 
-        list.emplace_back(m, Vector2d(0.746156, 0), Vector2d(0, 0.324677));
-        list.emplace_back(m, Vector2d(-0.373078, 0.238313), Vector2d(0.764226, -0.162339));
-        list.emplace_back(m, Vector2d(-0.373078, -0.238313), Vector2d(-0.764226, 0.162339));
-
-        return list;
+        vector<double> sine = {1, 1.5, -2.5};
+        vector<double> cosine = {1.5, 4.5, -1.5};
 
 
-        list.emplace_back(m, Vector2d(x0, 0), Vector2d(0, v0));
-        list.emplace_back(m, Vector2d(-x0/2 + delta, y0), Vector2d(vx0, -v0/2 + delta*vdelta));
-        list.emplace_back(m, Vector2d(-x0/2 - delta, -y0), Vector2d(-vx0, -v0/2 - delta*vdelta));
+        double rad = 20;
+        double speed = 0;
+
+        Vector2d pos;
+        Vector2d vel;
+
+        for (int i = 0; i < 3; i++) {
+            pos = rad*Vector2d(cosine.at(i), sine.at(i));
+            vel = speed*Vector2d(-sine.at(i), cosine.at(i));
+            list.emplace_back(1.13234367832 * (i+1),
+                           pos,
+                           vel);
+        }
 
         return list;
     }
-
-
 
     void doSymplecticIntegrator() {
 
