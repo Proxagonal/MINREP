@@ -73,12 +73,10 @@ private:
 
         nat j;
         for (nat i = 0; i < NUM; i++) {
-
             j = (i+1)%NUM;
             mutualVector = directedInverseSquare(bodyfold.posList[i], bodyfold.posList[j]);
             bodyfold.accList[i] += bodyfold.massList[j] * G * mutualVector;
             bodyfold.accList[j] += - bodyfold.massList[i] * G * mutualVector;
-
         }
     }
 
@@ -162,34 +160,6 @@ public:
             doSymplecticIntegrator();
 
     }
-    void strange1() {
-
-        for (int looper = 0; looper < 1000000; looper++)
-            for (int i = 0; i < subSteps; i++) {
-                for (nat p = 0; p < ORDER; p++) {
-                    updateAccelerations();
-                }
-            }
-
-    }
-
-    void strange2() {
-
-        for (int looper = 0; looper < 1000000; looper++)
-            for (int j = 0; j < subSteps; j++) {
-                for (nat p = 0; p < ORDER; p++) {
-                    for (nat i = 0; i < NUM; i++) {
-                        bodyfold.velList[i] += C[p] * dt * bodyfold.accList[i];
-                        bodyfold.posList[i] += D[p] * dt * bodyfold.velList[i];
-                    }
-                }
-
-            }
-        cout << "AAAAA" << bodyfold.sumMomentum().transpose() << endl;
-
-    }
-
-
 
     //calculates important quantities
     Quantities quantities() {
@@ -203,7 +173,6 @@ public:
     };
 
     const vData &getDrawInfo() {
-
         return bodyfold.posList;
     }
 
