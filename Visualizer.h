@@ -23,6 +23,8 @@ private:
     sf::RenderWindow window;
     sf::View view;
 
+    array<vector<Vector2d>, NUM> paths;
+
     void drawPos(const Vector2d &pos) {
 
         sf::CircleShape shape(RAD);
@@ -32,6 +34,20 @@ private:
         shape.setPosition(pos.x(), pos.y());
 
         window.draw(shape);
+    }
+
+    void drawPath(const vector<Vector2d> path) {
+
+        int amount = 1500;
+        int init = std::max(0, (int)path.size() - amount);
+
+        sf::VertexArray lines(sf::LinesStrip, path.size() - init);
+
+
+        for (int i = init; i<path.size(); i++)
+            lines[i-init] = sf::Vector2f(path[i].x(), path[i].y());
+
+        window.draw(lines);
     }
 
     void zoom(double scrollDelta) {
@@ -77,8 +93,11 @@ public:
 
         window.clear();
 
-        for (Vector2d pos : posList)
-            drawPos(pos);
+        for (int i = 0; i < NUM; i++) {
+            paths[i].emplace_back(posList[i]);
+            drawPath(paths[i]);
+            drawPos(posList[i]);
+        }
 
         window.display();
     }
