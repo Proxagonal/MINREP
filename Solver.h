@@ -28,6 +28,14 @@ private:
 
     //returns initial conditions of system
     initialData initialConditions() {
+
+        //deranged ideas:
+        //remove frametime and use Solver innerloop only
+        // - instead of loop 0 -> n-1, loop 1 -> 2^(n-1) with SHIFTLEFT
+        // - choose a dt that is a power of 2 and using SHIFTRIGHT
+        // - BTW, test performance when removing frameTime and just using an inner loop inside Solver
+        //try to remove G again...
+
         //cout << sizeof(Body);
 
         initialData list;
@@ -87,14 +95,6 @@ private:
         double rSquared = diff.squaredNorm();
 
         return rHat / rSquared;
-    }
-
-    Vector2d directedInverseSquareLutz(Vector2d &pos1, Vector2d &pos2) {
-
-        Vector2d diff = pos2 - pos1;
-        double rSquared = diff.squaredNorm();
-
-        return diff / (rSquared * sqrt(rSquared));
     }
 
     //calculates potential energy

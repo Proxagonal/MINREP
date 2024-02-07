@@ -11,7 +11,7 @@ using namespace Eigen;
 
 
 #define VISUALIZE true
-#define COMPARE_QUANTS true
+#define COMPARE_QUANTS false
 
 
 class Runner {
