@@ -10,7 +10,7 @@ using namespace std;
 using namespace Eigen;
 
 
-#define VISUALIZE true
+#define VISUALIZE false
 #define COMPARE_QUANTS false
 
 
@@ -18,7 +18,7 @@ class Runner {
 
 private:
 
-    const int T = 1000;
+    const int T = 100;
     const double frameTime = 0.001;
     int i = 0;
 
