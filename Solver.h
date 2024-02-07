@@ -83,8 +83,8 @@ private:
         for (nat i = 0; i < NUM; i++) {
             j = (i+1)%NUM;
             mutualVector = directedInverseSquare(bodyfold.posList[i], bodyfold.posList[j]);
-            bodyfold.accList[i] += bodyfold.massList[j] * G * mutualVector;
-            bodyfold.accList[j] += - bodyfold.massList[i] * G * mutualVector;
+            bodyfold.accList[i] += bodyfold.massList[j] * mutualVector;
+            bodyfold.accList[j] += - bodyfold.massList[i] * mutualVector;
         }
     }
 
@@ -92,7 +92,7 @@ private:
 
         Vector2d diff = pos2 - pos1;
 
-        return diff / (diff.norm() * diff.squaredNorm());
+        return G * diff / (diff.norm() * diff.squaredNorm());
     }
 
     //calculates potential energy
