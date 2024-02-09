@@ -17,88 +17,15 @@ std::chrono::steady_clock::time_point now() {
 
 int main() {
 
-    /*Vector2d frust;
-
-    Vector2d sum;
-    double dev;
-
-    sum.setZero();
-    dev = 0;
-
     auto start = now();
-
-    for (int i = 0; i < LOOP; i++) {
-        frust.setRandom();
-        sum += frust.newtonianNormalized();
-    }
-
-    auto end = now();
-    printMils(start, end);
-    cout << frust << endl;
-
-    sum.setZero();
-
-    start = now();
-
-    for (int i = 0; i < LOOP; i++) {
-        frust.setRandom();
-        sum += frust/frust.newtonianNorm();
-    }
-
-    end = now();
-    printMils(start, end);
-    cout << frust << endl;
-
-    sum.setZero();
-
-    start = now();
-
-    for (int i = 0; i < LOOP; i++) {
-        frust.setRandom();
-        sum += frust/(frust.norm()*frust.squaredNorm());
-    }
-
-    end = now();
-    printMils(start, end);
-    cout << frust << endl;
-
-
-    start = now();
-
-
-    for (int i = 0; i < LOOP; i++) {
-        frust.setRandom();
-        dev += frust.newtonianNorm();
-    }
-
-    end = now();
-    printMils(start, end);
-    cout << dev << endl;
-
-    dev = 0;
-
-    start = now();
-
-    for (int i = 0; i < LOOP; i++) {
-        frust.setRandom();
-        dev += frust.norm()*frust.squaredNorm();
-    }
-
-    end = now();
-    printMils(start, end);
-    cout << dev << endl;*/
-
-
-
-    auto start = std::chrono::steady_clock::now();
 
     Runner runner;
 
     runner.run();
 
-    auto end = std::chrono::steady_clock::now();
+    auto end = now();
 
-    cout << (duration_cast<chrono::milliseconds>(end - start)).count() << endl;
+    printMils(start, end);
 
     return 0;
 
