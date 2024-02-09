@@ -21,6 +21,7 @@ class Solver {
 private:
 
     const int subSteps = 2000;
+
     const double dt;
 
     Bodyfold bodyfold{initialConditions()};
@@ -28,15 +29,6 @@ private:
 
     //returns initial conditions of system
     initialData initialConditions() {
-
-        //deranged ideas:
-        //remove frametime and use Solver innerloop only
-        // - instead of loop 0 -> n-1, loop 1 -> 2^(n-1) with SHIFTLEFT
-        // - choose a dt that is a power of 2 and using SHIFTRIGHT
-        // - BTW, test performance when removing frameTime and just using an inner loop inside Solver
-        //try to remove G again...
-
-        //cout << sizeof(Body);
 
         initialData list;
 
@@ -88,11 +80,13 @@ private:
         }
     }
 
-    Vector2d directedInverseSquare(Vector2d &pos1, Vector2d &pos2) {
+    static Vector2d directedInverseSquare(const Vector2d &pos1, const Vector2d &pos2) {
 
         Vector2d diff = pos2 - pos1;
-
         return G * diff / (diff.norm() * diff.squaredNorm());
+        //return G * diff.newtonianNormalized();
+        //return G * diff/diff.newtonianNorm();
+
     }
 
     //calculates potential energy
