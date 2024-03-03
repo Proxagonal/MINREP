@@ -8,7 +8,7 @@
 #include <SFML/System.hpp>
 #include "Solver.h"
 
-#define RAD 1
+#define RAD 0.1
 
 using namespace std;
 using namespace Eigen;

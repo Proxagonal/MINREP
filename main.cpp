@@ -17,9 +17,9 @@ std::chrono::steady_clock::time_point now() {
 
 int main() {
 
-    auto start = now();
-
     Runner runner;
+
+    auto start = now();
 
     runner.run();
 

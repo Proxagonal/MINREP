@@ -10,6 +10,7 @@ add_executable(MINREP
         Quantities.h
         Runner.h
         Bodyfold.h
+        BodyfoldGenerator.h
 )
 
 #remove flag

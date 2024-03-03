@@ -4,6 +4,7 @@
 #include <Eigen/Eigen>
 #include "Bodyfold.h"
 #include "Quantities.h"
+#include "BodyfoldGenerator.h"
 
 using namespace std;
 using namespace Eigen;
@@ -30,27 +31,29 @@ private:
     //returns initial conditions of system
     initialData initialConditions() {
 
-        initialData list;
+        return BodyfoldGenerator::generateRandom();
 
-        vector<double> sine = {1, 1.5, -2.5};
-        vector<double> cosine = {1.5, 4.5, -1.5};
-
-
-        double rad = 20;
-        double speed = 0;
-
-        Vector2d pos;
-        Vector2d vel;
-
-        for (int i = 0; i < 3; i++) {
-            pos = rad*Vector2d(cosine.at(i), sine.at(i));
-            vel = speed*Vector2d(-sine.at(i), cosine.at(i));
-            list.emplace_back(1.13234367832 * (i+1),
-                           pos,
-                           vel);
-        }
-
-        return list;
+        //initialData list;
+//
+        //vector<double> sine = {1, 1.5, -2.5};
+        //vector<double> cosine = {1.5, 4.5, -1.5};
+//
+//
+        //double rad = 20;
+        //double speed = 0;
+//
+        //Vector2d pos;
+        //Vector2d vel;
+//
+        //for (int i = 0; i < 3; i++) {
+        //    pos = rad*Vector2d(cosine.at(i), sine.at(i));
+        //    vel = speed*Vector2d(-sine.at(i), cosine.at(i));
+        //    list.emplace_back(1.13234367832 * (i+1),
+        //                   pos,
+        //                   vel);
+        //}
+//
+        //return list;
     }
 
     void doSymplecticIntegrator() {
