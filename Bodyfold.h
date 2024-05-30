@@ -102,6 +102,23 @@ public:
         return mass;
     }
 
+    Vector2d getCOMVelocity() {
+
+        return sumMomentum()/sumMass();
+
+    }
+
+    Vector2d getCOMPosition() {
+
+        Vector2d com(0,0);
+
+        for (int i = 0; i < NUM; i++)
+            com += massList[i] * posList[i];
+
+        return com/sumMass();
+    }
+
+
     static initialData generateRandom() {
 
         initialData list;

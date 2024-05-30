@@ -141,25 +141,10 @@ private:
         return total;
     }
 
-    Vector2d calcCOM() {
-
-        Vector2d com(0,0);
-
-        for (int i = 0; i < NUM; i++)
-            com += bodyfold.massList[i] * bodyfold.posList[i];
-
-        return com/totalMass;
-    }
-
-    Vector2d calcCOMVelocity() {
-
-        return bodyfold.sumMomentum()/totalMass;
-    }
-
     void transformToCOMSystem() {
 
-        Vector2d COM = calcCOM();
-        Vector2d COMVel = calcCOMVelocity();
+        Vector2d COM = bodyfold.getCOMPosition();
+        Vector2d COMVel = bodyfold.getCOMVelocity();
 
         for (int i = 0; i < NUM; i++) {
             bodyfold.posList[i] -= COM;
