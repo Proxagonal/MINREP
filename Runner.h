@@ -10,7 +10,7 @@ using namespace std;
 using namespace Eigen;
 
 
-#define VISUALIZE true
+#define VISUALIZE false
 #define COMPARE_QUANTS false
 
 
@@ -18,7 +18,7 @@ class Runner {
 
 private:
 
-    const int T = 1000;
+    const int T = 10;
     const double frameTime = 0.001;
     int i = 0;
 
@@ -53,6 +53,7 @@ private:
         }
     }
 
+
 public:
 
     Runner() {
@@ -60,8 +61,11 @@ public:
 
     void run() {
 
+#if VISUALIZE
         while (isWindowOpen() && i*frameTime < T) {
-
+#else
+        while (i*frameTime < T) {
+#endif
             i++;
 
             solver.passTime();

@@ -26,6 +26,9 @@ private:
     static void printInitialData(const initialData &list) {
 
         int i = 0;
+
+        cout << "----------" << endl;
+
         for (auto const& [mass, pos, vel] : list) {
             cout << "Body #" << i++ << ": " << endl;
             cout << "Mass: " << mass << endl;
