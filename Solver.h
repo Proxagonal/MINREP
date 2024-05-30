@@ -4,7 +4,6 @@
 #include <Eigen/Eigen>
 #include "Bodyfold.h"
 #include "Quantities.h"
-#include "BodyfoldGenerator.h"
 
 using namespace std;
 using namespace Eigen;
@@ -22,38 +21,24 @@ class Solver {
 private:
 
     const int subSteps = 2000;
+    const int amountOfChecks = 100;
+    const int ratio = 20;
+    const int ratioSquare = ratio*ratio;
+    //const double invRatioSquare = 1.0/ratioSquare;
 
     const double dt;
+    const int checkFrequency;
 
     Bodyfold bodyfold{initialConditions()};
     const double totalMass = bodyfold.sumMass();
 
+    int passes = 0;
+
     //returns initial conditions of system
     initialData initialConditions() {
 
-        return BodyfoldGenerator::generateRandom();
+        return Bodyfold::generateRandom();
 
-        //initialData list;
-//
-        //vector<double> sine = {1, 1.5, -2.5};
-        //vector<double> cosine = {1.5, 4.5, -1.5};
-//
-//
-        //double rad = 20;
-        //double speed = 0;
-//
-        //Vector2d pos;
-        //Vector2d vel;
-//
-        //for (int i = 0; i < 3; i++) {
-        //    pos = rad*Vector2d(cosine.at(i), sine.at(i));
-        //    vel = speed*Vector2d(-sine.at(i), cosine.at(i));
-        //    list.emplace_back(1.13234367832 * (i+1),
-        //                   pos,
-        //                   vel);
-        //}
-//
-        //return list;
     }
 
     void doSymplecticIntegrator() {
@@ -92,18 +77,45 @@ private:
 
     }
 
+    bool isEscape() {
+
+        vector<double> distSquares;
+        nat j;
+        for (nat i = 0; i < NUM; i++) {
+            j = (i+1)%NUM;
+            distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
+        }
+
+        if (distSquares.at(0) > ratioSquare * distSquares.at(1))
+            return confirmEscape(0);
+        if (ratioSquare * distSquares.at(0) < distSquares.at(1))
+            return confirmEscape(2);
+        if (ratioSquare * distSquares.at(2) < distSquares.at(1))
+            return confirmEscape(1);
+
+        return NUM;
+    }
+
+    bool confirmEscape(nat i) {
+
+        int ip = (i+1) % NUM;
+        int ipp = (i+2) % NUM;
+        Vector2d twoBod = bodyfold.posList[ip] + (bodyfold.posList[ipp] - bodyfold.posList[ip]) * bodyfold.ratios[i];
+
+        double specificOrbitalEnergy =1;
+
+        Vector2d vectorAway = (bodyfold.posList[i] - twoBod).normalized();
+
+        double velocityAway = bodyfold.velList[i].dot(vectorAway);
+
+        return (bodyfold.massList[i] * velocityAway * velocityAway / 2 + calcPotentialOf(i) > 0);
+
+    }
+
     //calculates potential energy
     double calcPotential() {
 
         double total = 0;
-
-        //for (Body &body1 : bodyList) {
-        //    for (Body &body2: bodyList) {
-        //        if (&body1 != &body2) {
-        //            total += ((double)(-G * body1.mass * body2.mass)) / (double)body1.vectorTo(body2).norm();
-        //        }
-        //    }
-        //}
 
         for (int i = 0; i < NUM; i++)
             for (int j = 0; j < NUM; j++)
@@ -114,6 +126,19 @@ private:
             }
 
         return total/2;
+    }
+
+    double calcPotentialOf(nat i) {
+
+        double total = 0;
+
+        for (int j = 0; j < NUM; j++)
+        {
+            if (i != j)
+                total += ((double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
+        }
+
+        return total;
     }
 
     Vector2d calcCOM() {
@@ -145,15 +170,20 @@ private:
 
 public:
 
-    Solver(double frameTime): dt{frameTime/subSteps} {
+    Solver(double frameTime, int T): dt{frameTime/subSteps}, checkFrequency{(int)(T/(amountOfChecks*dt*subSteps))} {
         transformToCOMSystem();
     }
 
     void passTime() {
-
         for (int i = 0; i < subSteps; i++)
             doSymplecticIntegrator();
 
+        passes++;
+        //if (passes % checkFrequency == 0) {
+        //    nat i = ;
+        //    if (i != NUM)
+        //        cout << (int)i << ": " <<  << endl;
+        //}
     }
 
     //calculates important quantities

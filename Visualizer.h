@@ -17,26 +17,30 @@ class Visualizer {
 
 private:
 
-    const double zoomSpeed = 0.05;
-    const double initialZoomFactor = 6;
+    static constexpr double zoomSpeed = 0.05;
+    static constexpr double initialZoomFactor = 6;
+    const vector<sf::Color> colors = {sf::Color(255, 50, 50),
+                                      sf::Color(50, 255, 50),
+                                      sf::Color(50, 50, 255)};
 
     sf::RenderWindow window;
     sf::View view;
 
     array<vector<Vector2d>, NUM> paths;
 
-    void drawPos(const Vector2d &pos) {
+    void drawPos(const Vector2d &pos, int i) {
 
         sf::CircleShape shape(RAD);
 
-        shape.setFillColor(sf::Color::White);
+        //shape.setFillColor(sf::Color::White);
+        shape.setFillColor(colors[i]);
         shape.setOrigin(RAD, RAD);
         shape.setPosition(pos.x(), pos.y());
 
         window.draw(shape);
     }
 
-    void drawPath(const vector<Vector2d> path) {
+    void drawPath(const vector<Vector2d> path, int j) {
 
         int amount = 1500;
         int init = std::max(0, (int)path.size() - amount);
@@ -44,8 +48,11 @@ private:
         sf::VertexArray lines(sf::LinesStrip, path.size() - init);
 
 
-        for (int i = init; i<path.size(); i++)
+        for (int i = init; i<path.size(); i++) {
             lines[i-init] = sf::Vector2f(path[i].x(), path[i].y());
+            lines[i-init].color = colors[j];
+        }
+
 
         window.draw(lines);
     }
@@ -95,8 +102,8 @@ public:
 
         for (int i = 0; i < NUM; i++) {
             paths[i].emplace_back(posList[i]);
-            drawPath(paths[i]);
-            drawPos(posList[i]);
+            drawPath(paths[i], i);
+            drawPos(posList[i], i);
         }
 
         window.display();

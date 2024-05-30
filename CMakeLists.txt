@@ -10,7 +10,6 @@ add_executable(MINREP
         Quantities.h
         Runner.h
         Bodyfold.h
-        BodyfoldGenerator.h
 )
 
 #remove flag
@@ -21,6 +20,7 @@ add_executable(MINREP
 
 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
+
 #string(REPLACE "-O3" "-Os" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 #error out and see flags

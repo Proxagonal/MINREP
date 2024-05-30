@@ -10,7 +10,7 @@ using namespace std;
 using namespace Eigen;
 
 
-#define VISUALIZE false
+#define VISUALIZE true
 #define COMPARE_QUANTS false
 
 
@@ -18,11 +18,11 @@ class Runner {
 
 private:
 
-    const int T = 100;
+    const int T = 1000;
     const double frameTime = 0.001;
     int i = 0;
 
-    Solver solver{frameTime};
+    Solver solver{frameTime, T};
     const Quantities initialQuantities = solver.quantities();
 
 #if VISUALIZE
@@ -72,6 +72,9 @@ public:
             if (COMPARE_QUANTS)
                 quantComparison();
         }
+
+        // So compiler doesn't delete literally everything
+        cout << solver.quantities().toString() << endl;
     }
 
 };
