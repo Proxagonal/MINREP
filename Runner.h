@@ -10,15 +10,15 @@ using namespace std;
 using namespace Eigen;
 
 
-#define VISUALIZE false
-#define COMPARE_QUANTS false
+#define VISUALIZE true
+#define COMPARE_QUANTS true
 
 
 class Runner {
 
 private:
 
-    const int T = 10;
+    const int T = 50;
     const double frameTime = 0.001;
     int i = 0;
 
@@ -77,8 +77,7 @@ public:
                 quantComparison();
         }
 
-        // So compiler doesn't delete literally everything
-        cout << solver.quantities().toString() << endl;
+        solver.dumpSystemState();
     }
 
 };

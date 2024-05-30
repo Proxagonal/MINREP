@@ -38,7 +38,6 @@ private:
     initialData initialConditions() {
 
         return Bodyfold::generateRandom();
-
     }
 
     void doSymplecticIntegrator() {
@@ -144,6 +143,8 @@ public:
 
     Solver(double frameTime, int T): dt{frameTime/subSteps}, checkFrequency{(int)(T/(amountOfChecks*dt*subSteps))} {
         transformToCOMSystem();
+
+        dumpSystemState();
     }
 
     void passTime() {
@@ -180,6 +181,23 @@ public:
             maximum = max(maximum, bodyfold.posList[i].norm());
 
         return maximum;
+    }
+
+    void dumpSystemState() {
+
+        string frame = "----------------------------\n";
+        string bigFrame = "############################\n";
+
+        string txt = bigFrame;
+        txt = txt + "SYSTEM STATE:\n";
+        txt = txt + frame;
+        txt = txt + bodyfold.toString();
+        txt = txt + frame;
+        txt = txt + quantities().toString();
+        txt = txt + bigFrame;
+
+        cout << txt;
+
     }
 };
 

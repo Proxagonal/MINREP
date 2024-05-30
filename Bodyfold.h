@@ -23,21 +23,6 @@ private:
     constexpr static double systemRadius = 25;
     constexpr static double velocityMax = 15;
 
-    static void printInitialData(const initialData &list) {
-
-        int i = 0;
-
-        cout << "----------" << endl;
-
-        for (auto const& [mass, pos, vel] : list) {
-            cout << "Body #" << i++ << ": " << endl;
-            cout << "Mass: " << mass << endl;
-            cout << "init_Position: " << pos.transpose() << endl;
-            cout << "init_Velocity: " << vel.transpose() << endl;
-        }
-
-    }
-
     static Vector2d toCartesian(double rad, double theta) {
         return {rad*cos(theta), rad*sin(theta)};
     }
@@ -59,8 +44,6 @@ public:
     Data ratios;
 
     Bodyfold(const initialData& init) {
-
-        printInitialData(init);
 
         if (init.size() != NUM)
             throw invalid_argument("Not Correct Body Amount");
@@ -140,6 +123,23 @@ public:
         }
 
         return list;
+    }
+
+    string toString() {
+
+        stringstream ss;
+
+        for (int i = 0; i < NUM; i++) {
+
+            ss << "Body #" << i << ": " << endl;
+            ss << "Mass: " << massList[i] << endl;
+            ss << "Position: " << posList[i].transpose() << endl;
+            ss << "Velocity: " << velList[i].transpose() << endl;
+            ss << "Acceleration: " << accList[i].transpose() << endl;
+
+        }
+
+        return ss.str();
     }
 
 };
