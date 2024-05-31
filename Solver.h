@@ -75,41 +75,41 @@ private:
         //return G * diff/diff.newtonianNorm();
 
     }
+/*
+    bool isEscape() {
 
-    //bool isEscape() {
-//
-    //    vector<double> distSquares;
-    //    nat j;
-    //    for (nat i = 0; i < NUM; i++) {
-    //        j = (i+1)%NUM;
-    //        distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
-    //    }
-//
-    //    if (distSquares.at(0) > ratioSquare * distSquares.at(1))
-    //        return confirmEscape(0);
-    //    if (ratioSquare * distSquares.at(0) < distSquares.at(1))
-    //        return confirmEscape(2);
-    //    if (ratioSquare * distSquares.at(2) < distSquares.at(1))
-    //        return confirmEscape(1);
-//
-    //    return NUM;
-    //}
+        vector<double> distSquares;
+        nat j;
+        for (nat i = 0; i < NUM; i++) {
+            j = (i+1)%NUM;
+            distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
+        }
 
-    //bool confirmEscape(nat i) {
-//
-    //    int ip = (i+1) % NUM;
-    //    int ipp = (i+2) % NUM;
-    //    Vector2d twoBod = bodyfold.posList[ip] + (bodyfold.posList[ipp] - bodyfold.posList[ip]) * bodyfold.ratios[i];
-//
-    //    double specificOrbitalEnergy =1;
-//
-    //    Vector2d vectorAway = (bodyfold.posList[i] - twoBod).normalized();
-//
-    //    double velocityAway = bodyfold.velList[i].dot(vectorAway);
-//
-    //    return (bodyfold.massList[i] * velocityAway * velocityAway / 2 + calcPotentialOf(i) > 0);
-//
-    //}
+        if (distSquares.at(0) > ratioSquare * distSquares.at(1))
+            return confirmEscape(0);
+        if (ratioSquare * distSquares.at(0) < distSquares.at(1))
+            return confirmEscape(2);
+        if (ratioSquare * distSquares.at(2) < distSquares.at(1))
+            return confirmEscape(1);
+
+        return NUM;
+
+    bool confirmEscape(nat i) {
+
+        int ip = (i+1) % NUM;
+        int ipp = (i+2) % NUM;
+        Vector2d twoBod = bodyfold.posList[ip] + (bodyfold.posList[ipp] - bodyfold.posList[ip]) * bodyfold.ratios[i];
+
+        double specificOrbitalEnergy =1;
+
+        Vector2d vectorAway = (bodyfold.posList[i] - twoBod).normalized();
+
+        double velocityAway = bodyfold.velList[i].dot(vectorAway);
+
+        return (bodyfold.massList[i] * velocityAway * velocityAway / 2 + calcPotentialOf(i) > 0);
+
+    }
+*/
 
     //calculates potential energy
     double calcPotential() {
