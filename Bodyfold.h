@@ -43,25 +43,20 @@ public:
     vData velList;
     vData accList;
     Data massList;
-    Data ratios;
 
     Bodyfold(const initialData& init) {
-
 
         if (init.size() != NUM)
             throw invalid_argument("Not Correct Body Amount");
 
         int i = 0;
-        for (auto const& [mass, pos, vel] : init) {
+        for (auto const &[mass, pos, vel] : init) {
             posList[i] = pos;
             velList[i] = vel;
-            accList[i] = Vector2d(0,0);
+            accList[i] = Vector2d(0, 0);
             massList[i] = mass;
             i++;
         }
-        for (i = 0; i < NUM; i++)
-            ratios[i] = massList[(i+2)%NUM]/(massList[(i+1)%NUM] + massList[(i+2)%NUM]);
-
     };
 
     double sumKineticEnergy() {

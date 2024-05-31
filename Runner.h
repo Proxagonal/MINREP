@@ -12,18 +12,19 @@ using namespace Eigen;
 
 #define VISUALIZE true
 #define COMPARE_QUANTS true
+#define defaultT 50
+#define defaultFrameTime 0.001
 
 
 class Runner {
 
 private:
 
-    const int T = 50;
-    const double frameTime = 0.001;
-    int i = 0;
+    const int T;
+    const double frameTime;
 
-    Solver solver{frameTime, T};
-    const Quantities initialQuantities = solver.quantities();
+    Solver solver;
+    const Quantities initialQuantities;
 
 #if VISUALIZE
     Visualizer visuals{800, 800, solver.getSystemRadius()};
@@ -44,7 +45,7 @@ private:
 #endif
     }
 
-    void quantComparison() {
+    void quantComparison(int i) {
         if (fmod(i*frameTime, 5) == 0) {
 
             cout << "----------" << endl;
@@ -56,10 +57,21 @@ private:
 
 public:
 
-    Runner() {
+    Runner(): T{defaultT},
+                frameTime{defaultFrameTime},
+                solver{frameTime, T},
+                initialQuantities{solver.quantities()} {
+    }
+
+    Runner(initialData &givenInit, int givenT): T{givenT},
+              frameTime{defaultFrameTime},
+              solver{frameTime, T, givenInit},
+              initialQuantities{solver.quantities()} {
     }
 
     void run() {
+
+        int i = 0;
 
 #if VISUALIZE
         while (isWindowOpen() && i*frameTime < T) {
@@ -74,7 +86,7 @@ public:
                 visualizationLoop();
 
             if (COMPARE_QUANTS)
-                quantComparison();
+                quantComparison(i);
         }
 
         solver.dumpSystemState();

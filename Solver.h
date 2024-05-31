@@ -21,16 +21,15 @@ class Solver {
 private:
 
     const int subSteps = 2000;
-    const int amountOfChecks = 100;
+    //const int amountOfChecks = 100;
     const int ratio = 20;
-    const int ratioSquare = ratio*ratio;
+    //const int ratioSquare = ratio*ratio;
     //const double invRatioSquare = 1.0/ratioSquare;
 
     const double dt;
-    const int checkFrequency;
+    //const int checkFrequency;
 
-    Bodyfold bodyfold{initialConditions()};
-    const double totalMass = bodyfold.sumMass();
+    Bodyfold bodyfold;
 
     int passes = 0;
 
@@ -141,11 +140,19 @@ private:
 
 public:
 
-    Solver(double frameTime, int T): dt{frameTime/subSteps}, checkFrequency{(int)(T/(amountOfChecks*dt*subSteps))} {
-        transformToCOMSystem();
+    Solver(double frameTime, int T): dt{frameTime/subSteps},
+                                        //checkFrequency{(int)(T/(amountOfChecks*dt*subSteps))},
+                                        bodyfold{initialConditions()}
+                                        {
 
+        transformToCOMSystem();
         dumpSystemState();
 
+    }
+
+    Solver(double frameTime, int T, initialData &givenInits): dt{frameTime/subSteps},
+                                                            //checkFrequency{(int)(T/(amountOfChecks*dt*subSteps))},
+                                                            bodyfold{givenInits}{
     }
 
     void passTime() {
