@@ -16,6 +16,9 @@ static const array<string, SIZE> namesWithColons = {"Momentum X: ", "Momentum Y:
 
 class Quantities {
 
+private:
+    constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10 - 1;
+
 public:
 
     array<double, SIZE> quants;
@@ -31,12 +34,13 @@ public:
 
     string toString() {
 
-        string txt = "";
+        stringstream ss;
+        ss.precision(ALLDIGITS);
 
         for (int i = 0; i < SIZE; i++)
-            txt += namesWithColons.at(i) + to_string(quants.at(i)) + "\n";
+            ss << namesWithColons.at(i) << quants.at(i) << "\n";
 
-        return txt;
+        return ss.str();
     }
 
     static double deviation(double x, double y) {

@@ -145,6 +145,7 @@ public:
         transformToCOMSystem();
 
         dumpSystemState();
+
     }
 
     void passTime() {

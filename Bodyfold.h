@@ -18,6 +18,8 @@ struct Bodyfold {
 
 private:
 
+    constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10 - 1;
+
     constexpr static double massMin = 0.5;
     constexpr static double massMax = 2;
     constexpr static double systemRadius = 25;
@@ -44,6 +46,7 @@ public:
     Data ratios;
 
     Bodyfold(const initialData& init) {
+
 
         if (init.size() != NUM)
             throw invalid_argument("Not Correct Body Amount");
@@ -128,6 +131,7 @@ public:
     string toString() {
 
         stringstream ss;
+        ss.precision(ALLDIGITS);
 
         for (int i = 0; i < NUM; i++) {
 
