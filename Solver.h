@@ -20,18 +20,14 @@ class Solver {
 
 private:
 
-    const int subSteps = 2000;
-    //const int amountOfChecks = 100;
-    const int ratio = 20;
-    //const int ratioSquare = ratio*ratio;
-    //const double invRatioSquare = 1.0/ratioSquare;
+    static const int subSteps = 2000;
+    static const int checkTime = 5;
+    static const int ratio = 20;
+    static const int ratioSquare = ratio*ratio;
 
     const double dt;
-    //const int checkFrequency;
 
     Bodyfold bodyfold;
-
-    int passes = 0;
 
     //returns initial conditions of system
     initialData initialConditions() {
@@ -70,17 +66,15 @@ private:
 
         Vector2d diff = pos2 - pos1;
         return G * diff / (diff.norm() * diff.squaredNorm());
-        //return G * diff.newtonianNormalized();
-        //return G * diff/diff.newtonianNorm();
-
     }
-/*
+
+
     bool isEscape() {
 
         vector<double> distSquares;
         nat j;
         for (nat i = 0; i < NUM; i++) {
-            j = (i+1)%NUM;
+            j = (i + 1) % NUM;
             distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
         }
 
@@ -92,6 +86,7 @@ private:
             return confirmEscape(1);
 
         return NUM;
+    }
 
     bool confirmEscape(nat i) {
 
@@ -108,7 +103,6 @@ private:
         return (bodyfold.massList[i] * velocityAway * velocityAway / 2 + calcPotentialOf(i) > 0);
 
     }
-*/
 
     //calculates potential energy
     double calcPotential() {
