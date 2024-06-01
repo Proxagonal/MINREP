@@ -159,7 +159,7 @@ public:
         for (int i = 0; i < subSteps; i++)
             doSymplecticIntegrator();
 
-        passes++;
+        //passes++;
         //if (passes % checkFrequency == 0) {
         //    nat i = ;
         //    if (i != NUM)

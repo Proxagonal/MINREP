@@ -4,6 +4,7 @@
 #include <iostream>
 #include <Eigen/Eigen>
 #include <cmath>
+#include <random>
 
 using namespace std;
 using namespace Eigen;
@@ -34,7 +35,14 @@ private:
     }
 
     static double rand01() {
-        return (double) rand() / RAND_MAX;
+
+        static std::random_device rd;
+        static std::mt19937_64 gen(rd());
+        static std::uniform_real_distribution<double> dist{0, 1};
+
+        return dist(gen);
+
+        //return (double) rand() / RAND_MAX;
     }
 
 public:
@@ -105,9 +113,8 @@ public:
 
     static initialData generateRandom() {
 
-        initialData list;
 
-        srand(time(0));
+        initialData list;
 
         Vector2d pos;
         Vector2d vel;
@@ -136,6 +143,22 @@ public:
             ss << "Velocity: " << velList[i].transpose() << endl;
             ss << "Acceleration: " << accList[i].transpose() << endl;
 
+        }
+
+        return ss.str();
+    }
+
+    static string toString(initialData &initialConditions) {
+
+        stringstream ss;
+        ss.precision(ALLDIGITS);
+
+        for (int i = 0; i < NUM; i++) {
+
+            ss << "Body #" << i << ": " << endl;
+            ss << "Mass: " << get<0>(initialConditions.at(i)) << endl;
+            ss << "Position: " << get<1>(initialConditions.at(i)).transpose() << endl;
+            ss << "Velocity: " << get<2>(initialConditions.at(i)).transpose() << endl;
         }
 
         return ss.str();
