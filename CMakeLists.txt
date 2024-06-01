@@ -10,6 +10,7 @@ add_executable(MINREP
         Quantities.h
         Runner.h
         Bodyfold.h
+        #mainTester.cpp
 )
 
 #remove flag

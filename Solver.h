@@ -144,7 +144,6 @@ public:
                                         //checkFrequency{(int)(T/(amountOfChecks*dt*subSteps))},
                                         bodyfold{initialConditions()}
                                         {
-
         transformToCOMSystem();
         dumpSystemState();
 
@@ -153,6 +152,7 @@ public:
     Solver(double frameTime, int T, initialData &givenInits): dt{frameTime/subSteps},
                                                             //checkFrequency{(int)(T/(amountOfChecks*dt*subSteps))},
                                                             bodyfold{givenInits}{
+        transformToCOMSystem();
     }
 
     void passTime() {
@@ -207,6 +207,19 @@ public:
         cout << txt;
 
     }
+
+    /*
+    void doSymplecticIntegratorFull(int T, double dt) {
+
+        for (int pass = 0; pass*dt < T; pass++)
+            for (nat p = 0; p < ORDER; p++) {
+                updateAccelerations();
+                for (nat i = 0; i < NUM; i++) {
+                    bodyfold.velList[i] += C[p] * dt * bodyfold.accList[i];
+                    bodyfold.posList[i] += D[p] * dt * bodyfold.velList[i];
+                }
+            }
+    }*/
 };
 
 #endif
