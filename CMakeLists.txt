@@ -8,7 +8,7 @@ add_executable(MINREP
         Solver.h
         Visualizer.h
         Quantities.h
-        Runner.h
+        #Runner.h
         Bodyfold.h
         #mainTester.cpp
 )

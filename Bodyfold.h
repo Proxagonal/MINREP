@@ -23,7 +23,7 @@ private:
 
     constexpr static double massMin = 0.5;
     constexpr static double massMax = 2;
-    constexpr static double systemRadius = 25;
+    constexpr static double systemRadius = 35;
     constexpr static double velocityMax = 15;
 
     static Vector2d toCartesian(double rad, double theta) {
@@ -111,7 +111,7 @@ public:
     }
 
 
-    static initialData generateRandom() {
+    static initialData generateRandomCOM() {
 
 
         initialData list;
@@ -127,7 +127,30 @@ public:
             list.emplace_back(mass, pos, vel);
         }
 
-        return list;
+        return transformToCOMSystem(list);
+    }
+
+    static initialData transformToCOMSystem(initialData &init) {
+
+        initialData COMMED;
+
+        double massSum = 0;
+        Vector2d weightedPoses(0, 0);
+        Vector2d weightedVels(0, 0);
+
+        for (auto const &[mass, pos, vel] : init) {
+            massSum += mass;
+            weightedPoses += mass*pos;
+            weightedVels += mass*vel;
+        }
+
+        Vector2d COM = weightedPoses/massSum;
+        Vector2d COMVel = weightedVels/massSum;
+
+        for (auto const &[mass, pos, vel] : init)
+            COMMED.emplace_back(mass, pos - COM, vel - COMVel);
+
+        return COMMED;
     }
 
     string toString() {

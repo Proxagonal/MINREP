@@ -1,4 +1,4 @@
-#include "Runner.h"
+#include "Solver.h"
 #include <chrono>
 
 using namespace std;
@@ -14,13 +14,15 @@ std::chrono::steady_clock::time_point now() {
 
 int main() {
 
-    Runner runner;
+    Solver solver(50, pow(10, -6)/2);
 
     auto start = now();
 
-    runner.run();
+    solver.run();
 
     auto end = now();
+
+    solver.dumpSystemState();
 
     printMils(start, end);
 
