@@ -82,15 +82,35 @@ private:
         return G * diff / (diff.norm() * diff.squaredNorm());
     }
 
-
-    tuple<int, int> escapeCheck() {
+    tuple<int, int> haltCheck() {
 
         vector<double> distSquares;
+
         nat j;
         for (nat i = 0; i < NUM; i++) {
             j = (i + 1) % NUM;
             distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
         }
+
+        nat escapeCheckBody, escapeCheckStatus;
+        tie(escapeCheckBody, escapeCheckStatus) = escapeCheck(distSquares);
+
+        if (escapeCheckStatus == 1)
+            return {escapeCheckBody, escapeCheckStatus};
+        if (escapeCheckStatus == 2) {
+            //Activate ellipse stuff
+            return {-1, -1};
+        }
+
+        if (isDissolved(distSquares))
+            return {-1, 3};
+
+        return {-1, -1};
+
+    }
+
+
+    tuple<nat, nat> escapeCheck(vector<double> &distSquares) {
 
         if (distSquares.at(0) > ratioSquare * distSquares.at(1))
             return {0, confirmEscape(distSquares, 0)};
@@ -103,6 +123,7 @@ private:
     }
 
     // 0: Undecided, 1: Escape, 2: Locked
+    // NOTE: Can save many divisions, but this gets calculated so infrequently that it doesn't matter.
     nat confirmEscape(vector<double> &distSquares, nat i) {
 
         int uno = (i + 1) % NUM;
@@ -111,27 +132,27 @@ private:
         double mu = bodyfold.massList[uno];
         double md = bodyfold.massList[dos];
         double mu_ud = G*(mu + md);
+        Vector2d velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
 
 
-        double epsilon_ud = (bodyfold.velList[dos] - bodyfold.velList[uno]).squaredNorm()/2
-                            - mu_ud / sqrt(distSquares[uno]);
+        double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / sqrt(distSquares[uno]);
 
         // This means the binary isn't bound
         if (epsilon_ud >= 0)
-            return false;
+            return 0;
 
         double ellipseMajor_ud = -mu_ud/epsilon_ud;
 
         // This means the approximation will not be good at apoapsis
         // Multiply by eps^2 for no division
         if (ratioSquare * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
-            return false;
+            return 0;
 
         Vector2d binaryCOM = bodyfold.posList[uno]
                             + massRatios[i] * (bodyfold.posList[dos] - bodyfold.posList[uno]);
 
         Vector2d binaryCOMVel = bodyfold.velList[uno]
-                                + massRatios[i] * (bodyfold.velList[dos] - bodyfold.velList[uno]);
+                                + massRatios[i] * velDiff_ud;
 
         Vector2d deltaPosWholeSystem = bodyfold.posList[i] - binaryCOM;
         Vector2d deltaVelWholeSystem = bodyfold.velList[i] - binaryCOMVel;
@@ -148,12 +169,42 @@ private:
 
         double ellipseMajorWholeSystem = -muWholeSystem/epsilonWholeSystem;
 
-        if (ellipseMajorWholeSystem > ratio * ellipseMajor_ud)
-            // Then body [i] is bound but cannot strongly affect the other bodies.
-            // calculating r_p would give a better estimate...
-            return 2;
+        // Suspicion of Hierarchical triple system
+        return 2;
+    }
 
-        return 0;
+    bool isDissolved(vector<double> &distSquares) {
+
+        Vector2d relPos;
+        Vector2d relVel;
+
+        for (int i = 0; i < NUM; i++) {
+
+            int j = (i + 1) % NUM;
+
+            relPos = bodyfold.posList[j] - bodyfold.posList[i];
+            relVel = bodyfold.velList[j] - bodyfold.velList[i];
+
+            if (relPos.dot(relVel) <= 0)
+                return false;
+        }
+
+        double minDist = sqrt(*ranges::min_element(distSquares));
+
+        double totalEnergy;
+        for (int i = 0; i < NUM; i++) {
+            int uno = (i + 1) % NUM;
+            int dos = (i + 2) % NUM;
+
+            totalEnergy = bodyfold.massList[i]*bodyfold.velList[i].squaredNorm()
+                    - G*bodyfold.massList[i]*(bodyfold.massList[uno] + bodyfold.massList[dos])/minDist;
+
+            if (totalEnergy < 0)
+                return false;
+        }
+
+        return true;
+
     }
 
     //calculates potential energy
@@ -205,7 +256,7 @@ public:
             doSymplecticIntegrator();
 
             if (pass%checkPerPasses == 0) {
-                tuple<int, int> result = escapeCheck();
+                tuple<int, int> result = haltCheck();
                 cout << get<0>(result) << " " << get<1>(result) << endl;
             }
 
