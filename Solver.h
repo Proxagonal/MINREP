@@ -10,7 +10,7 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS true
+#define COMPARE_QUANTS false
 
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
@@ -27,12 +27,12 @@ private:
     const int T;
     const double dt;
 
-    static const int checkTime = 5;
-    static const int ratio = 20;
+    static const int checkPerPasses = 5000000;
+    static const int ratio = 10;
     static const int ratioSquare = ratio*ratio;
 
-
     Bodyfold bodyfold;
+    vector<double> massRatios;
 
 #if VISUALIZE
     Visualizer visuals;
@@ -83,40 +83,78 @@ private:
     }
 
 
-    //bool isEscape() {
-//
-    //    vector<double> distSquares;
-    //    nat j;
-    //    for (nat i = 0; i < NUM; i++) {
-    //        j = (i + 1) % NUM;
-    //        distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
-    //    }
-//
-    //    if (distSquares.at(0) > ratioSquare * distSquares.at(1))
-    //        return confirmEscape(0);
-    //    if (ratioSquare * distSquares.at(0) < distSquares.at(1))
-    //        return confirmEscape(2);
-    //    if (ratioSquare * distSquares.at(2) < distSquares.at(1))
-    //        return confirmEscape(1);
-//
-    //    return NUM;
-    //}
-//
-    //bool confirmEscape(nat i) {
-//
-    //    int ip = (i+1) % NUM;
-    //    int ipp = (i+2) % NUM;
-    //    Vector2d twoBod = bodyfold.posList[ip] + (bodyfold.posList[ipp] - bodyfold.posList[ip]) * bodyfold.ratios[i];
-//
-    //    double specificOrbitalEnergy =1;
-//
-    //    Vector2d vectorAway = (bodyfold.posList[i] - twoBod).normalized();
-//
-    //    double velocityAway = bodyfold.velList[i].dot(vectorAway);
-//
-    //    return (bodyfold.massList[i] * velocityAway * velocityAway / 2 + calcPotentialOf(i) > 0);
-//
-    //}
+    tuple<int, int> escapeCheck() {
+
+        vector<double> distSquares;
+        nat j;
+        for (nat i = 0; i < NUM; i++) {
+            j = (i + 1) % NUM;
+            distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
+        }
+
+        if (distSquares.at(0) > ratioSquare * distSquares.at(1))
+            return {0, confirmEscape(distSquares, 0)};
+        if (ratioSquare * distSquares.at(0) < distSquares.at(1))
+            return {2, confirmEscape(distSquares, 2)};
+        if (ratioSquare * distSquares.at(2) < distSquares.at(1))
+            return {1, confirmEscape(distSquares, 1)};
+
+        return {-1, -1};
+    }
+
+    // 0: Undecided, 1: Escape, 2: Locked
+    nat confirmEscape(vector<double> &distSquares, nat i) {
+
+        int uno = (i + 1) % NUM;
+        int dos = (i + 2) % NUM;
+
+        double mu = bodyfold.massList[uno];
+        double md = bodyfold.massList[dos];
+        double mu_ud = G*(mu + md);
+
+
+        double epsilon_ud = (bodyfold.velList[dos] - bodyfold.velList[uno]).squaredNorm()/2
+                            - mu_ud / sqrt(distSquares[uno]);
+
+        // This means the binary isn't bound
+        if (epsilon_ud >= 0)
+            return false;
+
+        double ellipseMajor_ud = -mu_ud/epsilon_ud;
+
+        // This means the approximation will not be good at apoapsis
+        // Multiply by eps^2 for no division
+        if (ratioSquare * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
+            return false;
+
+        Vector2d binaryCOM = bodyfold.posList[uno]
+                            + massRatios[i] * (bodyfold.posList[dos] - bodyfold.posList[uno]);
+
+        Vector2d binaryCOMVel = bodyfold.velList[uno]
+                                + massRatios[i] * (bodyfold.velList[dos] - bodyfold.velList[uno]);
+
+        Vector2d deltaPosWholeSystem = bodyfold.posList[i] - binaryCOM;
+        Vector2d deltaVelWholeSystem = bodyfold.velList[i] - binaryCOMVel;
+        double muWholeSystem = mu_ud + G*bodyfold.massList[i];
+
+
+        double epsilonWholeSystem = deltaVelWholeSystem.squaredNorm()/2
+                                    - muWholeSystem / deltaPosWholeSystem.norm();
+
+        if (epsilonWholeSystem > 0)
+            // If false then it isn't travelling in escape direction: therefore return code 0
+            // If true then escaping away: therefore return code 1
+            return deltaPosWholeSystem.dot(deltaVelWholeSystem) > 0;
+
+        double ellipseMajorWholeSystem = -muWholeSystem/epsilonWholeSystem;
+
+        if (ellipseMajorWholeSystem > ratio * ellipseMajor_ud)
+            // Then body [i] is bound but cannot strongly affect the other bodies.
+            // calculating r_p would give a better estimate...
+            return 2;
+
+        return 0;
+    }
 
     //calculates potential energy
     double calcPotential() {
@@ -152,11 +190,26 @@ public:
 #endif
     {
         dumpSystemState();
+
+        int i, j, k;
+        for (i = 0; i < NUM; i++) {
+            j = (i+1) % NUM;
+            k = (i+2) % NUM;
+            massRatios.emplace_back(bodyfold.massList[k] / (bodyfold.massList[j] + bodyfold.massList[k]));
+        }
+
     }
 
     void run() {
         for (int pass = 0; pass*dt < T; pass++) {
             doSymplecticIntegrator();
+
+            if (pass%checkPerPasses == 0) {
+                tuple<int, int> result = escapeCheck();
+                cout << get<0>(result) << " " << get<1>(result) << endl;
+            }
+
+
 
 #if VISUALIZE
             if (pass%framePerPasses == 0) {
