@@ -185,10 +185,13 @@ private:
             relPos = bodyfold.posList[j] - bodyfold.posList[i];
             relVel = bodyfold.velList[j] - bodyfold.velList[i];
 
+            // If anything going towards anything else: no.
             if (relPos.dot(relVel) <= 0)
                 return false;
         }
 
+        // Minimal distance: if we assume all bodies are this far apart and we get dissolution,
+        // then it must happen.
         double minDist = sqrt(*ranges::min_element(distSquares));
 
         double totalEnergy;
@@ -196,15 +199,17 @@ private:
             int uno = (i + 1) % NUM;
             int dos = (i + 2) % NUM;
 
+            // Calculate body's energy with this worst-case-scenario distance
             totalEnergy = bodyfold.massList[i]*bodyfold.velList[i].squaredNorm()
                     - G*bodyfold.massList[i]*(bodyfold.massList[uno] + bodyfold.massList[dos])/minDist;
 
+            // Must be enough to escape the current potential. Since all bodies are getting
+            // further and further away, this will be enough to escape always.
             if (totalEnergy < 0)
                 return false;
         }
 
         return true;
-
     }
 
     //calculates potential energy
