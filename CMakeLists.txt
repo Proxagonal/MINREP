@@ -4,13 +4,12 @@ project(MINREP)
 set(CMAKE_CXX_STANDARD 23)
 
 add_executable(MINREP
-        main.cpp
+        #main.cpp
         Solver.h
         Visualizer.h
         Quantities.h
-        #Runner.h
         Bodyfold.h
-        #mainTester.cpp
+        mainTester.cpp
 )
 
 #remove flag
@@ -25,7 +24,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
 #string(REPLACE "-O3" "-Os" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 #error out and see flags
-#set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -HAHAHA")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -HAHAHA")
 
 
 include_directories("include/eigen-3.4.0")
@@ -33,5 +32,9 @@ include_directories("include/eigen-3.4.0")
 set(SFML_DIR "include/SFML-2.6.1/lib/cmake/SFML")
 
 find_package(SFML COMPONENTS graphics window REQUIRED)
+
+
+include_directories("include/simdjson")
+
 
 target_link_libraries(MINREP PUBLIC sfml-graphics sfml-window)

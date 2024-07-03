@@ -9,8 +9,10 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE true
-#define COMPARE_QUANTS true
+#define VISUALIZE false
+#define COMPARE_QUANTS false
+#define ANALYSE true
+#define HALTCHECK false
 
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
@@ -27,7 +29,8 @@ private:
     const int T;
     const double dt;
 
-    static const int checkPerPasses = 5000000;
+
+    static const int haltCheckPerPasses = 5000000;
     static const int ratio = 10;
     static const int ratioSquare = ratio*ratio;
 
@@ -81,6 +84,8 @@ private:
         Vector2d diff = pos2 - pos1;
         return G * diff / (diff.norm() * diff.squaredNorm());
     }
+
+#if HALTCHECK
 
     tuple<int, int> haltCheck() {
 
@@ -211,6 +216,7 @@ private:
 
         return true;
     }
+#endif
 
     //calculates potential energy
     double calcPotential() {
@@ -245,14 +251,19 @@ public:
     , initialQuants{quantities()}
 #endif
     {
-        dumpSystemState();
+        updateAccelerations();
+#if !(ANALYSE)
+        dumpSystemStateString();
+#endif
 
+#if ESCAPECHECK
         int i, j, k;
         for (i = 0; i < NUM; i++) {
             j = (i+1) % NUM;
             k = (i+2) % NUM;
             massRatios.emplace_back(bodyfold.massList[k] / (bodyfold.massList[j] + bodyfold.massList[k]));
         }
+#endif
 
     }
 
@@ -260,12 +271,12 @@ public:
         for (int pass = 0; pass*dt < T; pass++) {
             doSymplecticIntegrator();
 
-            if (pass%checkPerPasses == 0) {
+#if ESCAPECHECK
+            if (pass%haltCheckPerPasses == 0) {
                 tuple<int, int> result = haltCheck();
                 cout << get<0>(result) << " " << get<1>(result) << endl;
             }
-
-
+#endif
 
 #if VISUALIZE
             if (pass%framePerPasses == 0) {
@@ -316,7 +327,7 @@ public:
     }
 #endif
 
-    void dumpSystemState() {
+    void dumpSystemStateString() {
 
         string frame = "----------------------------\n";
         string bigFrame = "############################\n";
@@ -332,6 +343,38 @@ public:
         cout << txt;
 
     }
+
+#if ANALYSE
+
+    int pass = 0;
+
+    Bodyfold& getBodyfold() {
+        return bodyfold;
+    }
+    double getTime() {
+        return pass*dt;
+    }
+
+    bool runOnce() {
+
+        if (pass*dt >= T)
+            return false;
+
+        doSymplecticIntegrator();
+
+#if ESCAPECHECK
+        if (pass%haltCheckPerPasses == 0) {
+            tuple<int, int> result = haltCheck();
+            cout << get<0>(result) << " " << get<1>(result) << endl;
+        }
+#endif
+
+        pass++;
+        return true;
+    }
+
+#endif
+
 };
 
 #endif
