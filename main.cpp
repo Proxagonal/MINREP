@@ -1,5 +1,7 @@
 #include "Solver.h"
 #include <chrono>
+#include <unistd.h>
+#include <iostream>
 
 using namespace std;
 using namespace Eigen;
@@ -14,7 +16,7 @@ std::chrono::steady_clock::time_point now() {
 
 int main() {
 
-    Solver solver(500, pow(10, -6)/2);
+    Solver solver(100, pow(10, -6)/2);
 
     auto start = now();
 
@@ -22,7 +24,7 @@ int main() {
 
     auto end = now();
 
-    solver.dumpSystemState();
+    solver.dumpSystemStateString();
 
     printMils(start, end);
 

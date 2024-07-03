@@ -256,7 +256,7 @@ public:
         dumpSystemStateString();
 #endif
 
-#if ESCAPECHECK
+#if HALTCHECK
         int i, j, k;
         for (i = 0; i < NUM; i++) {
             j = (i+1) % NUM;
@@ -271,7 +271,7 @@ public:
         for (int pass = 0; pass*dt < T; pass++) {
             doSymplecticIntegrator();
 
-#if ESCAPECHECK
+#if HALTCHECK
             if (pass%haltCheckPerPasses == 0) {
                 tuple<int, int> result = haltCheck();
                 cout << get<0>(result) << " " << get<1>(result) << endl;
@@ -362,7 +362,7 @@ public:
 
         doSymplecticIntegrator();
 
-#if ESCAPECHECK
+#if HALTCHECK
         if (pass%haltCheckPerPasses == 0) {
             tuple<int, int> result = haltCheck();
             cout << get<0>(result) << " " << get<1>(result) << endl;
