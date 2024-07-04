@@ -9,9 +9,8 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE false
-#define COMPARE_QUANTS false
-#define ANALYSE true
+#define VISUALIZE true
+#define COMPARE_QUANTS true
 #define HALTCHECK false
 
 #define ORDER 4
@@ -252,9 +251,7 @@ public:
 #endif
     {
         updateAccelerations();
-#if !(ANALYSE)
         dumpSystemStateString();
-#endif
 
 #if HALTCHECK
         int i, j, k;
@@ -343,37 +340,6 @@ public:
         cout << txt;
 
     }
-
-#if ANALYSE
-
-    int pass = 0;
-
-    Bodyfold& getBodyfold() {
-        return bodyfold;
-    }
-    double getTime() {
-        return pass*dt;
-    }
-
-    bool runOnce() {
-
-        if (pass*dt >= T)
-            return false;
-
-        doSymplecticIntegrator();
-
-#if HALTCHECK
-        if (pass%haltCheckPerPasses == 0) {
-            tuple<int, int> result = haltCheck();
-            cout << get<0>(result) << " " << get<1>(result) << endl;
-        }
-#endif
-
-        pass++;
-        return true;
-    }
-
-#endif
 
 };
 
