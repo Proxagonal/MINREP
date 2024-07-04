@@ -161,10 +161,10 @@ public:
         for (int i = 0; i < NUM; i++) {
 
             ss << "Body #" << i << ": " << endl;
-            ss << "Mass: " << massList[i] << endl;
-            ss << "Position: " << posList[i].transpose() << endl;
-            ss << "Velocity: " << velList[i].transpose() << endl;
-            ss << "Acceleration: " << accList[i].transpose() << endl;
+            ss << "Mass #" << i << ": " << massList[i] << endl;
+            ss << "Position #" << i << ": " << posList[i].transpose() << endl;
+            ss << "Velocity #" << i << ": " << velList[i].transpose() << endl;
+            ss << "Acceleration #" << i << ": " << accList[i].transpose() << endl;
 
         }
 

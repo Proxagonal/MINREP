@@ -9,10 +9,8 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE false
-#define COMPARE_QUANTS false
 #define ANALYSE true
-#define HALTCHECK false
+#define HALTCHECK true
 
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
@@ -24,27 +22,21 @@ typedef uint_fast8_t nat;
 
 class Solver {
 
-private:
+public:
 
     const int T;
     const double dt;
 
 
-    static const int haltCheckPerPasses = 5000000;
+    const int haltCheckPerPasses;
     static const int ratio = 10;
     static const int ratioSquare = ratio*ratio;
+    double haltingTime = -1;
+    bool changedMind = false;
+    tuple<int, int> haltStatus;
 
     Bodyfold bodyfold;
     vector<double> massRatios;
-
-#if VISUALIZE
-    Visualizer visuals;
-    const int framePerPasses = 5000;
-#endif
-#if COMPARE_QUANTS
-    Quantities initialQuants;
-    const int comparePerPasses = 20000000;
-#endif
 
     //returns initial conditions of system
     static initialData initialConditions() {
@@ -108,7 +100,7 @@ private:
         }
 
         if (isDissolved(distSquares))
-            return {-1, 3};
+            return {3, 3};
 
         return {-1, -1};
 
@@ -241,15 +233,8 @@ private:
 #endif
 
 
-public:
-
-    Solver(int givenT, double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}
-#if VISUALIZE
-    , visuals{800, 800, getSystemRadius()}
-#endif
-#if COMPARE_QUANTS
-    , initialQuants{quantities()}
-#endif
+    Solver(int givenT, double givenDt, double givenCheckTime, initialData inits=initialConditions()):
+    bodyfold{inits}, T{givenT}, dt{givenDt}, haltCheckPerPasses{(int)(givenCheckTime/dt)}
     {
         updateAccelerations();
 #if !(ANALYSE)
@@ -273,23 +258,19 @@ public:
 
 #if HALTCHECK
             if (pass%haltCheckPerPasses == 0) {
-                tuple<int, int> result = haltCheck();
-                cout << get<0>(result) << " " << get<1>(result) << endl;
+                if (haltingTime == -1) {
+                    haltStatus = haltCheck();
+                    if (get<0>(haltStatus) != -1) {
+                        haltingTime = pass*dt;
+                        pass = 0; //CRUCIAL FUCK
+                    }
+                }
+                else if (!changedMind && haltStatus != haltCheck())
+                    changedMind = true;
+
             }
 #endif
 
-#if VISUALIZE
-            if (pass%framePerPasses == 0) {
-                visuals.visualizationLoop(getDrawInfo());
-                if (!isWindowOpen())
-                    break;
-            }
-#endif
-#if COMPARE_QUANTS
-            if (pass%comparePerPasses == 0) {
-                compare(pass);
-            }
-#endif
         }
     }
 
@@ -303,29 +284,6 @@ public:
 
         return {mom.x(), mom.y(), kin, pot};
     };
-
-#if COMPARE_QUANTS
-    void compare(int pass) {
-        cout << "----------" << endl;
-        cout << "TIME: " << pass*dt << endl;
-        Quantities::compare(quantities(), initialQuants);
-    }
-#endif
-
-#if VISUALIZE
-    const vData &getDrawInfo() {
-        return bodyfold.posList;
-    }
-
-    double getSystemRadius() {
-
-        double maximum = 0;
-        for (int i = 0; i < NUM; i++)
-            maximum = max(maximum, bodyfold.posList[i].norm());
-
-        return maximum;
-    }
-#endif
 
     void dumpSystemStateString() {
 
@@ -343,37 +301,6 @@ public:
         cout << txt;
 
     }
-
-#if ANALYSE
-
-    int pass = 0;
-
-    Bodyfold& getBodyfold() {
-        return bodyfold;
-    }
-    double getTime() {
-        return pass*dt;
-    }
-
-    bool runOnce() {
-
-        if (pass*dt >= T)
-            return false;
-
-        doSymplecticIntegrator();
-
-#if HALTCHECK
-        if (pass%haltCheckPerPasses == 0) {
-            tuple<int, int> result = haltCheck();
-            cout << get<0>(result) << " " << get<1>(result) << endl;
-        }
-#endif
-
-        pass++;
-        return true;
-    }
-
-#endif
 
 };
 
