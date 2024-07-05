@@ -10,8 +10,12 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS true
-#define HALTCHECK false
+#define COMPARE_QUANTS false
+#define HALTCHECK true
+
+#if VISUALIZE
+#include <unistd.h>
+#endif
 
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
@@ -29,7 +33,7 @@ private:
     const double dt;
 
 
-    static const int haltCheckPerPasses = 5000000;
+    static const int haltCheckPerPasses = 2000000;
     static const int ratio = 10;
     static const int ratioSquare = ratio*ratio;
 
@@ -281,6 +285,8 @@ public:
                 if (!isWindowOpen())
                     break;
             }
+            if (pass%10 == 0 && 1.1*pass*dt > T)
+                usleep(0);
 #endif
 #if COMPARE_QUANTS
             if (pass%comparePerPasses == 0) {
