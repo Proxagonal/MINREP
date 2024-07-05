@@ -31,9 +31,14 @@ public:
     const int haltCheckPerPasses;
     static const int ratio = 10;
     static const int ratioSquare = ratio*ratio;
-    double haltingTime = -1;
-    bool changedMind = false;
+    vector<double> changingTimes;
     tuple<int, int> haltStatus;
+    vector<tuple<int, int>> haltStatuses;
+    int seeWhatHappensAttempts = 5;
+    bool unresolved = false;
+    double systemTime = 0;
+    int factor = 2;
+    int limFactor = 5;
 
     Bodyfold bodyfold;
     vector<double> massRatios;
@@ -237,9 +242,6 @@ public:
     bodyfold{inits}, T{givenT}, dt{givenDt}, haltCheckPerPasses{(int)(givenCheckTime/dt)}
     {
         updateAccelerations();
-#if !(ANALYSE)
-        dumpSystemStateString();
-#endif
 
 #if HALTCHECK
         int i, j, k;
@@ -248,30 +250,38 @@ public:
             k = (i+2) % NUM;
             massRatios.emplace_back(bodyfold.massList[k] / (bodyfold.massList[j] + bodyfold.massList[k]));
         }
+
+        haltStatuses.emplace_back(haltCheck());
+        changingTimes.emplace_back(0);
 #endif
 
     }
 
     void run() {
-        for (int pass = 0; pass*dt < T; pass++) {
+        int pass;
+        for (pass = 0; pass*dt < factor*T; pass++) {
             doSymplecticIntegrator();
 
 #if HALTCHECK
+
             if (pass%haltCheckPerPasses == 0) {
-                if (haltingTime == -1) {
-                    haltStatus = haltCheck();
-                    if (get<0>(haltStatus) != -1) {
-                        haltingTime = pass*dt;
-                        pass = 0; //CRUCIAL FUCK
+                haltStatus = haltCheck();
+                if (haltStatus != haltStatuses.back()) {
+                    changingTimes.emplace_back(pass*dt);
+                    haltStatuses.emplace_back(haltStatus);
+                    systemTime += pass*dt;
+                    pass = 0;
+                    factor = 2 - isHalted(haltStatus);
+                    if (systemTime >= limFactor*T) {
+                        unresolved = true;
+                        return;
                     }
                 }
-                else if (!changedMind && haltStatus != haltCheck())
-                    changedMind = true;
-
             }
 #endif
-
         }
+
+        systemTime += pass*dt;
     }
 
     //calculates important quantities
@@ -300,6 +310,16 @@ public:
 
         cout << txt;
 
+    }
+
+    bool isHalted(tuple<int, int> tup) {
+        int x, y;
+        tie(x, y) = tup;
+        if (x == 3 and y == 3)
+            return true;
+        if (x != -1 and x != 3 and y == 1)
+            return true;
+        return false;
     }
 
 };
