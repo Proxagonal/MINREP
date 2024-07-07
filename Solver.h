@@ -207,8 +207,9 @@ private:
             int uno = (i + 1) % NUM;
             int dos = (i + 2) % NUM;
 
+            //THIS IS BAD --------------------------------
             // Calculate body's energy with this worst-case-scenario distance
-            totalEnergy = bodyfold.massList[i]*bodyfold.velList[i].squaredNorm()
+            totalEnergy = bodyfold.massList[i]*bodyfold.velList[i].squaredNorm()/2
                     - G*bodyfold.massList[i]*(bodyfold.massList[uno] + bodyfold.massList[dos])/minDist;
 
             // Must be enough to escape the current potential. Since all bodies are getting
@@ -285,8 +286,8 @@ public:
                 if (!isWindowOpen())
                     break;
             }
-            if (pass%10 == 0 && 1.1*pass*dt > T)
-                usleep(0);
+            //if (pass%10 == 0 && 1.1*pass*dt > T)
+            //    usleep(0);
 #endif
 #if COMPARE_QUANTS
             if (pass%comparePerPasses == 0) {
