@@ -5,5 +5,3 @@ cmake-build-release_wsl/
 .idea/
 include/
 DATAOUT/
-
-mainTester.cpp
