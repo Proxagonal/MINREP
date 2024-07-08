@@ -284,6 +284,31 @@ public:
         systemTime += pass*dt;
     }
 
+    void runDry() {
+        int pass;
+        for (pass = 0; pass*dt < T; pass++) {
+            doSymplecticIntegrator();
+
+#if HALTCHECK
+
+            if (pass%haltCheckPerPasses == 0) {
+                haltStatus = haltCheck();
+                cout << get<0>(haltStatus) << get<1>(haltStatus);
+                if (haltStatus != haltStatuses.back()) {
+                    changingTimes.emplace_back(pass*dt);
+                    haltStatuses.emplace_back(haltStatus);
+                }
+            }
+#endif
+        }
+    }
+
+    void runDryNoHalt() {
+        int pass;
+        for (pass = 0; pass * dt < T; pass++)
+            doSymplecticIntegrator();
+    }
+
     //calculates important quantities
     Quantities quantities() {
 

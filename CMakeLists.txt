@@ -9,7 +9,8 @@ add_executable(MINREP
         Visualizer.h
         Quantities.h
         Bodyfold.h
-        mainTester.cpp
+        #mainTester.cpp
+        secondaryTester.cpp
 )
 
 #remove flag
