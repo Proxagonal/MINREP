@@ -130,7 +130,7 @@ private:
         return {-1, -1};
     }
 
-    // 0: Undecided, 1: Escape, 2: Locked
+    // 0: Undecided, 1: Escape, 2: Locked?
     // NOTE: Can save many divisions, but this gets calculated so infrequently that it doesn't matter.
     nat confirmEscape(vector<double> &distSquares, nat i) {
 
@@ -204,6 +204,8 @@ private:
 
         double totalEnergy;
         for (int i = 0; i < NUM; i++) {
+
+            /*
             int uno = (i + 1) % NUM;
             int dos = (i + 2) % NUM;
 
@@ -215,11 +217,12 @@ private:
             // Must be enough to escape the current potential. Since all bodies are getting
             // further and further away, this will be enough to escape always.
             if (totalEnergy < 0)
-                return false;
+                return false;*/
         }
 
         return true;
     }
+
 #endif
 
     //calculates potential energy
