@@ -110,9 +110,8 @@ public:
         return com/sumMass();
     }
 
-
+    // Symmetries: rotation, scale, mass sum, COM, p_COM
     static initialData generateRandomCOM() {
-
 
         initialData list;
 
