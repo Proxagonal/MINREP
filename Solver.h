@@ -113,6 +113,7 @@ private:
         if (isDissolved(distSquares))
             return {-1, 3};
 
+        // To Be Determined
         return {-1, -1};
 
     }
@@ -175,9 +176,10 @@ private:
             // If true then escaping away: therefore return code 1
             return deltaPosWholeSystem.dot(deltaVelWholeSystem) > 0;
 
-        double ellipseMajorWholeSystem = -muWholeSystem/epsilonWholeSystem;
+        //double ellipseMajorWholeSystem = -muWholeSystem/epsilonWholeSystem;
 
-        // Suspicion of Hierarchical triple system
+        // Suspicion of Hierarchical triple system. What this is technically is that both
+        // the nested and big two body systems are bound.
         return 2;
     }
 
@@ -186,9 +188,12 @@ private:
         Vector2d relPos;
         Vector2d relVel;
 
-        for (int i = 0; i < NUM; i++) {
+        nat j;
 
-            int j = (i + 1) % NUM;
+        // Check that all bodies are moving away from eachother
+        for (nat i = 0; i < NUM; i++) {
+
+            j = (i + 1) % NUM;
 
             relPos = bodyfold.posList[j] - bodyfold.posList[i];
             relVel = bodyfold.velList[j] - bodyfold.velList[i];
@@ -198,11 +203,6 @@ private:
                 return false;
         }
 
-        // Minimal distance: if we assume all bodies are this far apart and we get dissolution,
-        // then it must happen.
-        double minDist = sqrt(*ranges::min_element(distSquares));
-
-        double totalEnergy;
         for (int i = 0; i < NUM; i++) {
 
             /*
