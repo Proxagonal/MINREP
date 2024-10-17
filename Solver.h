@@ -17,6 +17,10 @@ using namespace Eigen;
 #include <unistd.h>
 #endif
 
+#if HALTCHECK //only for now
+static const array<string, 4> velocityReductionNames = {"to other body", "lower velocity", "reduce velocity diff", "no worstcase"};
+#endif
+
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
@@ -105,10 +109,10 @@ private:
 
         if (escapeCheckStatus == 1)
             return {escapeCheckBody, escapeCheckStatus};
-        if (escapeCheckStatus == 2) {
-            //Activate ellipse stuff
-            return {-1, -1};
-        }
+        //if (escapeCheckStatus == 2) {
+        //    //Activate ellipse stuff
+        //    return {-1, -1};
+        //}
 
         if (isDissolved(distSquares))
             return {-1, 3};
@@ -183,12 +187,20 @@ private:
         return 2;
     }
 
+    //double relativeVelocity_takenOff(const Vector2d &v1, const Vector2d &v2, )
+
     bool isDissolved(vector<double> &distSquares) {
 
         Vector2d relPos;
         Vector2d relVel;
 
+        vector<double> potentials;
+
         nat j;
+        for (nat i = 0; i < NUM; i++) {
+            j = (i + 1) % NUM;
+            potentials.emplace_back(G*bodyfold.massList[i]*bodyfold.massList[j]/sqrt(distSquares[i]));
+        }
 
         // Check that all bodies are moving away from eachother
         for (nat i = 0; i < NUM; i++) {
@@ -199,28 +211,71 @@ private:
             relVel = bodyfold.velList[j] - bodyfold.velList[i];
 
             // If anything going towards anything else: no.
-            if (relPos.dot(relVel) <= 0)
+            // New: In worst case, both velocities may decrease by as much as 2U/m in the direction of the other body. Checks it.
+            // (v2-v1)*r12 -> (v2 + c1*ehat - (v1 + c2*ohat))*r12 = (v2-v1)*r12 + (c1*ehat - c2*ohat)*r12
+            // This is smallest when ehat=-r12_hat, ohat=-ehat. Therefor, worst case: v12*r12 - (c1+c2)|r12|
+
+            double worstCase = 2*potentials[i]*(bodyfold.massList[i] + bodyfold.massList[j])/(bodyfold.massList[i] * bodyfold.massList[j]); // 2*U*(m1+m2 / m1m2) = 2U/m1 + 2U/m2
+
+            if (relPos.dot(relVel) <= worstCase)
                 return false;
         }
 
+        array<bool, 4> dissolved = {true, true, true, true};
         for (int i = 0; i < NUM; i++) {
 
-            /*
             int uno = (i + 1) % NUM;
             int dos = (i + 2) % NUM;
 
-            //THIS IS BAD --------------------------------
-            // Calculate body's energy with this worst-case-scenario distance
-            totalEnergy = bodyfold.massList[i]*bodyfold.velList[i].squaredNorm()/2
-                    - G*bodyfold.massList[i]*(bodyfold.massList[uno] + bodyfold.massList[dos])/minDist;
+            relPos = bodyfold.posList[dos] - bodyfold.posList[uno];
+            relVel = bodyfold.velList[dos] - bodyfold.velList[uno];
 
-            // Must be enough to escape the current potential. Since all bodies are getting
-            // further and further away, this will be enough to escape always.
-            if (totalEnergy < 0)
-                return false;*/
+            double deltavUno = (2/bodyfold.massList[uno])*potentials[dos];
+            double deltavDos = (2/bodyfold.massList[dos])*potentials[dos];
+
+            // MULTIPLE OPTIONS
+            Vector2d eUno_toOtherBody = relPos.normalized();
+            Vector2d eDos_toOtherBody = -eUno_toOtherBody;
+
+            Vector2d eUno_reduceVelocity = -bodyfold.velList[uno].normalized();
+            Vector2d eDos_reduceVelocity = -bodyfold.velList[dos].normalized();
+
+            Vector2d eUno_oppositeRelativeVelocity = relVel.normalized();
+            Vector2d eDos_oppositeRelativeVelocity = -eUno_oppositeRelativeVelocity;
+
+            Vector2d eUno_ignore = Vector2d(0,0);
+            Vector2d eDos_ignore = Vector2d(0,0);
+
+            //Vector2d eUno_ = OPTIM;
+            //Vector2d eDos_ = OPTIM;
+
+            vector<tuple<Vector2d, Vector2d>> directions = {{eUno_toOtherBody, eDos_toOtherBody},
+                                                            {eUno_reduceVelocity, eDos_reduceVelocity},
+                                                            {eUno_oppositeRelativeVelocity, eDos_oppositeRelativeVelocity},
+                                                            {eUno_ignore, eDos_ignore}};
+
+            double reducedPotential = G*(bodyfold.massList[uno]+bodyfold.massList[dos])/sqrt(distSquares[uno]);
+
+            Vector2d vUno, vDos;
+            int version = 0;
+            for (auto const &[eUno, eDos] : directions) {
+                vUno = bodyfold.velList[uno] + deltavUno * eUno;
+                vDos = bodyfold.velList[dos] + deltavDos * eDos;
+
+                double epsilon = (vUno - vDos).squaredNorm()/2 - reducedPotential;
+
+                dissolved[version] = dissolved[version] and (epsilon > 0);
+                version++;
+            }
         }
 
-        return true;
+        for (int i = 0; i < 4; i++) {
+            cout << velocityReductionNames[i] << ": " << (dissolved[i] ? "ESCAPE" : "...") << endl;
+        }
+
+        return false;
+
+        //return true;
     }
 
 #endif
