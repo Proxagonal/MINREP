@@ -17,10 +17,6 @@ using namespace Eigen;
 #include <unistd.h>
 #endif
 
-#if HALTCHECK //only for now
-static const array<string, 4> velocityReductionNames = {"to other body", "lower velocity", "reduce velocity diff", "no worstcase"};
-#endif
-
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
@@ -189,23 +185,24 @@ private:
 
     //double relativeVelocity_takenOff(const Vector2d &v1, const Vector2d &v2, )
 
-    bool isDissolved(vector<double> &distSquares) {
+    bool isDissolved(const vector<double> &distSquares) {
 
         Vector2d relPos;
         Vector2d relVel;
 
-        vector<double> potentials;
+        vector<double> posPotentials;
 
-        nat j;
+        nat j, k;
         for (nat i = 0; i < NUM; i++) {
             j = (i + 1) % NUM;
-            potentials.emplace_back(G*bodyfold.massList[i]*bodyfold.massList[j]/sqrt(distSquares[i]));
+            posPotentials.emplace_back(G*bodyfold.massList[i]*bodyfold.massList[j]/sqrt(distSquares[i]));
         }
 
         // Check that all bodies are moving away from eachother
         for (nat i = 0; i < NUM; i++) {
 
             j = (i + 1) % NUM;
+            k = (i + 2) % NUM;
 
             relPos = bodyfold.posList[j] - bodyfold.posList[i];
             relVel = bodyfold.velList[j] - bodyfold.velList[i];
@@ -215,67 +212,43 @@ private:
             // (v2-v1)*r12 -> (v2 + c1*ehat - (v1 + c2*ohat))*r12 = (v2-v1)*r12 + (c1*ehat - c2*ohat)*r12
             // This is smallest when ehat=-r12_hat, ohat=-ehat. Therefor, worst case: v12*r12 - (c1+c2)|r12|
 
-            double worstCase = 2*potentials[i]*(bodyfold.massList[i] + bodyfold.massList[j])/(bodyfold.massList[i] * bodyfold.massList[j]); // 2*U*(m1+m2 / m1m2) = 2U/m1 + 2U/m2
+            double worstCase = 2*posPotentials[j]/bodyfold.massList[j] + 2*posPotentials[k]/bodyfold.massList[i];
 
             if (relPos.dot(relVel) <= worstCase)
                 return false;
         }
 
-        array<bool, 4> dissolved = {true, true, true, true};
         for (int i = 0; i < NUM; i++) {
 
             int uno = (i + 1) % NUM;
             int dos = (i + 2) % NUM;
 
-            relPos = bodyfold.posList[dos] - bodyfold.posList[uno];
             relVel = bodyfold.velList[dos] - bodyfold.velList[uno];
 
-            double deltavUno = (2/bodyfold.massList[uno])*potentials[dos];
-            double deltavDos = (2/bodyfold.massList[dos])*potentials[dos];
+            double deltavUno = (2/bodyfold.massList[uno])*posPotentials[i]; // potential between i and uno
+            double deltavDos = (2/bodyfold.massList[dos])*posPotentials[dos]; // potential between dos and i
+            double reducedPosPotential = G*(bodyfold.massList[uno]+bodyfold.massList[dos])/sqrt(distSquares[uno]);
 
-            // MULTIPLE OPTIONS
-            Vector2d eUno_toOtherBody = relPos.normalized();
-            Vector2d eDos_toOtherBody = -eUno_toOtherBody;
+            // If not enough energy to escape eachother: no.
+            // New: In worst case, both velocities may decrease by as much as 2U/m, in some direction.
+            // And so, in worst case, we have |v1 - v2 + c1*e + c2*o| for |e|,|o| <= 1 vectors
+            // Geometric arg proves if c = (c1+c2)/2, then e', o' with |e'|=|o'|=1 must exist such that
+            // c(e' + o') = c1*e + c2*o
+            // Then, of course if v = v1-v2 is the original vector, you reduce its magnitude most by going in the opposite direction until you reach 0.
+            // Therefore, have e' + o' be in direction -v, with magnitude as big as possible (which is 2). That is unless you'll go further than 0,
+            // Then you just want to make them do a zigzag to reach 0 exactly. This is M.
+            double M = max(0.0, relVel.norm() - deltavUno - deltavDos);
+            //cout << "M: " << M << endl;
+            //cout << "reduced potential: " << reducedPotential << endl;
+            //cout << "dvs: " << deltavUno << ", " << deltavDos << endl;
+            //cout << "epsilon: " << M*M/2 - reducedPosPotential << endl;
+            //cout << "---" << endl;
 
-            Vector2d eUno_reduceVelocity = -bodyfold.velList[uno].normalized();
-            Vector2d eDos_reduceVelocity = -bodyfold.velList[dos].normalized();
-
-            Vector2d eUno_oppositeRelativeVelocity = relVel.normalized();
-            Vector2d eDos_oppositeRelativeVelocity = -eUno_oppositeRelativeVelocity;
-
-            Vector2d eUno_ignore = Vector2d(0,0);
-            Vector2d eDos_ignore = Vector2d(0,0);
-
-            //Vector2d eUno_ = OPTIM;
-            //Vector2d eDos_ = OPTIM;
-
-            vector<tuple<Vector2d, Vector2d>> directions = {{eUno_toOtherBody, eDos_toOtherBody},
-                                                            {eUno_reduceVelocity, eDos_reduceVelocity},
-                                                            {eUno_oppositeRelativeVelocity, eDos_oppositeRelativeVelocity},
-                                                            {eUno_ignore, eDos_ignore}};
-
-            double reducedPotential = G*(bodyfold.massList[uno]+bodyfold.massList[dos])/sqrt(distSquares[uno]);
-
-            Vector2d vUno, vDos;
-            int version = 0;
-            for (auto const &[eUno, eDos] : directions) {
-                vUno = bodyfold.velList[uno] + deltavUno * eUno;
-                vDos = bodyfold.velList[dos] + deltavDos * eDos;
-
-                double epsilon = (vUno - vDos).squaredNorm()/2 - reducedPotential;
-
-                dissolved[version] = dissolved[version] and (epsilon > 0);
-                version++;
-            }
+            if (M*M/2 - reducedPosPotential <= 0)
+                return false;
         }
 
-        for (int i = 0; i < 4; i++) {
-            cout << velocityReductionNames[i] << ": " << (dissolved[i] ? "ESCAPE" : "...") << endl;
-        }
-
-        return false;
-
-        //return true;
+        return true;
     }
 
 #endif
@@ -324,7 +297,6 @@ public:
             massRatios.emplace_back(bodyfold.massList[k] / (bodyfold.massList[j] + bodyfold.massList[k]));
         }
 #endif
-
     }
 
     void run() {
@@ -336,6 +308,9 @@ public:
                 tuple<int, int> result = haltCheck();
                 cout << get<0>(result) << " " << get<1>(result) << endl;
             }
+            //TESTING:
+            //if (pass%200000 == 0)
+            //    onlyDissolveCheckTRY();
 #endif
 
 #if VISUALIZE
