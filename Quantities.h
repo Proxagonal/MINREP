@@ -43,6 +43,10 @@ public:
         return ss.str();
     }
 
+    double E() {
+        return quants.at(2);
+    }
+
     static double deviation(double x, double y) {
         if (y == 0)
             return x;

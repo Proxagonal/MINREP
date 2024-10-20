@@ -9,8 +9,13 @@
 using namespace std;
 using namespace Eigen;
 
-#define ANALYSE true
+#define VISUALIZE false
+#define COMPARE_QUANTS false
 #define HALTCHECK true
+
+#if VISUALIZE
+#include <unistd.h>
+#endif
 
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
@@ -26,22 +31,25 @@ public:
 
     const int T;
     const double dt;
+    const int haltCheckPerPasses = 1/dt;
+    double time = 0;
 
-
-    const int haltCheckPerPasses;
     static const int ratio = 10;
     static const int ratioSquare = ratio*ratio;
-    vector<double> changingTimes;
-    tuple<int, int> haltStatus;
-    vector<tuple<int, int>> haltStatuses;
-    int seeWhatHappensAttempts = 5;
-    bool unresolved = false;
-    double systemTime = 0;
-    int factor = 2;
-    int limFactor = 5;
 
     Bodyfold bodyfold;
     vector<double> massRatios;
+
+    vector<tuple<tuple<int, int>, double>> statuses;
+
+#if VISUALIZE
+    Visualizer visuals;
+    const int framePerPasses = 5000;
+#endif
+#if COMPARE_QUANTS
+    Quantities initialQuants;
+    const int comparePerPasses = 20000000;
+#endif
 
     //returns initial conditions of system
     static initialData initialConditions() {
@@ -99,14 +107,15 @@ public:
 
         if (escapeCheckStatus == 1)
             return {escapeCheckBody, escapeCheckStatus};
-        if (escapeCheckStatus == 2) {
-            //Activate ellipse stuff
-            return {-1, -1};
-        }
+        //if (escapeCheckStatus == 2) {
+        //    //Activate ellipse stuff
+        //    return {-1, -1};
+        //}
 
         if (isDissolved(distSquares))
-            return {3, 3};
+            return {-1, 3};
 
+        // To Be Determined
         return {-1, -1};
 
     }
@@ -124,7 +133,7 @@ public:
         return {-1, -1};
     }
 
-    // 0: Undecided, 1: Escape, 2: Locked
+    // 0: Undecided, 1: Escape, 2: Locked?
     // NOTE: Can save many divisions, but this gets calculated so infrequently that it doesn't matter.
     nat confirmEscape(vector<double> &distSquares, nat i) {
 
@@ -169,50 +178,81 @@ public:
             // If true then escaping away: therefore return code 1
             return deltaPosWholeSystem.dot(deltaVelWholeSystem) > 0;
 
-        double ellipseMajorWholeSystem = -muWholeSystem/epsilonWholeSystem;
+        //double ellipseMajorWholeSystem = -muWholeSystem/epsilonWholeSystem;
 
-        // Suspicion of Hierarchical triple system
+        // Suspicion of Hierarchical triple system. What this is technically is that both
+        // the nested and big two body systems are bound.
         return 2;
     }
 
-    bool isDissolved(vector<double> &distSquares) {
+    //double relativeVelocity_takenOff(const Vector2d &v1, const Vector2d &v2, )
+
+    bool isDissolved(const vector<double> &distSquares) {
 
         Vector2d relPos;
         Vector2d relVel;
 
-        for (int i = 0; i < NUM; i++) {
+        vector<double> posPotentials;
 
-            int j = (i + 1) % NUM;
+        nat j, k;
+        for (nat i = 0; i < NUM; i++) {
+            j = (i + 1) % NUM;
+            posPotentials.emplace_back(G*bodyfold.massList[i]*bodyfold.massList[j]/sqrt(distSquares[i]));
+        }
+
+        // Check that all bodies are moving away from eachother
+        for (nat i = 0; i < NUM; i++) {
+
+            j = (i + 1) % NUM;
+            k = (i + 2) % NUM;
 
             relPos = bodyfold.posList[j] - bodyfold.posList[i];
             relVel = bodyfold.velList[j] - bodyfold.velList[i];
 
             // If anything going towards anything else: no.
-            if (relPos.dot(relVel) <= 0)
+            // New: In worst case, both velocities may decrease by as much as 2U/m in the direction of the other body. Checks it.
+            // (v2-v1)*r12 -> (v2 + c1*ehat - (v1 + c2*ohat))*r12 = (v2-v1)*r12 + (c1*ehat - c2*ohat)*r12
+            // This is smallest when ehat=-r12_hat, ohat=-ehat. Therefor, worst case: v12*r12 - (c1+c2)|r12|
+
+            double worstCase = 2*posPotentials[j]/bodyfold.massList[j] + 2*posPotentials[k]/bodyfold.massList[i];
+
+            if (relPos.dot(relVel) <= worstCase)
                 return false;
         }
 
-        // Minimal distance: if we assume all bodies are this far apart and we get dissolution,
-        // then it must happen.
-        double minDist = sqrt(*ranges::min_element(distSquares));
-
-        double totalEnergy;
         for (int i = 0; i < NUM; i++) {
+
             int uno = (i + 1) % NUM;
             int dos = (i + 2) % NUM;
 
-            // Calculate body's energy with this worst-case-scenario distance
-            totalEnergy = bodyfold.massList[i]*bodyfold.velList[i].squaredNorm()
-                    - G*bodyfold.massList[i]*(bodyfold.massList[uno] + bodyfold.massList[dos])/minDist;
+            relVel = bodyfold.velList[dos] - bodyfold.velList[uno];
 
-            // Must be enough to escape the current potential. Since all bodies are getting
-            // further and further away, this will be enough to escape always.
-            if (totalEnergy < 0)
+            double deltavUno = (2/bodyfold.massList[uno])*posPotentials[i]; // potential between i and uno
+            double deltavDos = (2/bodyfold.massList[dos])*posPotentials[dos]; // potential between dos and i
+            double reducedPosPotential = G*(bodyfold.massList[uno]+bodyfold.massList[dos])/sqrt(distSquares[uno]);
+
+            // If not enough energy to escape eachother: no.
+            // New: In worst case, both velocities may decrease by as much as 2U/m, in some direction.
+            // And so, in worst case, we have |v1 - v2 + c1*e + c2*o| for |e|,|o| <= 1 vectors
+            // Geometric arg proves if c = (c1+c2)/2, then e', o' with |e'|=|o'|=1 must exist such that
+            // c(e' + o') = c1*e + c2*o
+            // Then, of course if v = v1-v2 is the original vector, you reduce its magnitude most by going in the opposite direction until you reach 0.
+            // Therefore, have e' + o' be in direction -v, with magnitude as big as possible (which is 2). That is unless you'll go further than 0,
+            // Then you just want to make them do a zigzag to reach 0 exactly. This is M.
+            double M = max(0.0, relVel.norm() - deltavUno - deltavDos);
+            //cout << "M: " << M << endl;
+            //cout << "reduced potential: " << reducedPotential << endl;
+            //cout << "dvs: " << deltavUno << ", " << deltavDos << endl;
+            //cout << "epsilon: " << M*M/2 - reducedPosPotential << endl;
+            //cout << "---" << endl;
+
+            if (M*M/2 - reducedPosPotential <= 0)
                 return false;
         }
 
         return true;
     }
+
 #endif
 
     //calculates potential energy
@@ -238,10 +278,18 @@ public:
 #endif
 
 
-    Solver(int givenT, double givenDt, double givenCheckTime, initialData inits=initialConditions()):
-    bodyfold{inits}, T{givenT}, dt{givenDt}, haltCheckPerPasses{(int)(givenCheckTime/dt)}
+public:
+
+    Solver(int givenT, double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}
+#if VISUALIZE
+    , visuals{800, 800, getSystemRadius()}
+#endif
+#if COMPARE_QUANTS
+    , initialQuants{quantities()}
+#endif
     {
         updateAccelerations();
+        //dumpSystemStateString();
 
 #if HALTCHECK
         int i, j, k;
@@ -250,64 +298,69 @@ public:
             k = (i+2) % NUM;
             massRatios.emplace_back(bodyfold.massList[k] / (bodyfold.massList[j] + bodyfold.massList[k]));
         }
-
-        haltStatuses.emplace_back(haltCheck());
-        changingTimes.emplace_back(0);
 #endif
-
     }
 
     void run() {
-        int pass;
-        for (pass = 0; pass*dt < factor*T; pass++) {
+        for (int pass = 0; pass*dt < T; pass++) {
             doSymplecticIntegrator();
 
 #if HALTCHECK
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                cout << get<0>(result) << " " << get<1>(result) << endl;
+            }
+#endif
+
+#if VISUALIZE
+            if (pass%framePerPasses == 0) {
+                visuals.visualizationLoop(getDrawInfo());
+                if (!isWindowOpen())
+                    break;
+            }
+            //if (pass%10 == 0 && 1.1*pass*dt > T)
+            //    usleep(0);
+#endif
+#if COMPARE_QUANTS
+            if (pass%comparePerPasses == 0) {
+                compare(pass);
+            }
+#endif
+        }
+    }
+
+    bool run_EANDT_TCYCLE(double initialEnergy, double divMax) {
+
+        int timeNeeded = T;
+        long pass = 0;
+
+        statuses.emplace_back(haltCheck(), 0);
+
+        for (pass = 0; pass*dt < timeNeeded; pass++) {
 
             if (pass%haltCheckPerPasses == 0) {
-                haltStatus = haltCheck();
-                if (haltStatus != haltStatuses.back()) {
-                    changingTimes.emplace_back(pass*dt);
-                    haltStatuses.emplace_back(haltStatus);
-                    systemTime += pass*dt;
+                tuple<int, int> result = haltCheck();
+                if (result != get<0>(statuses.back())) {
+                    statuses.emplace_back(result, time + pass * dt);
+                    timeNeeded = (int)(T - (2*T/3)*(time == 0) + T*(time > 0));
+                    time += pass * dt;
                     pass = 0;
-                    factor = 2 - isHalted(haltStatus);
-                    if (systemTime >= limFactor*T) {
-                        unresolved = true;
-                        return;
-                    }
+                }
+
+                if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax) {
+                    time += pass * dt;
+                    return false;
                 }
             }
-#endif
+
+            doSymplecticIntegrator();
         }
 
-        systemTime += pass*dt;
+        time += pass*dt;
+        return true;
     }
 
-    void runDry() {
-        int pass;
-        for (pass = 0; pass*dt < T; pass++) {
-            doSymplecticIntegrator();
 
-#if HALTCHECK
-
-            if (pass%haltCheckPerPasses == 0) {
-                haltStatus = haltCheck();
-                cout << get<0>(haltStatus) << get<1>(haltStatus);
-                if (haltStatus != haltStatuses.back()) {
-                    changingTimes.emplace_back(pass*dt);
-                    haltStatuses.emplace_back(haltStatus);
-                }
-            }
-#endif
-        }
-    }
-
-    void runDryNoHalt() {
-        int pass;
-        for (pass = 0; pass * dt < T; pass++)
-            doSymplecticIntegrator();
-    }
 
     //calculates important quantities
     Quantities quantities() {
@@ -319,6 +372,33 @@ public:
 
         return {mom.x(), mom.y(), kin, pot};
     };
+
+    double getEnergy() {
+        return bodyfold.sumKineticEnergy() + calcPotential();
+    }
+
+#if COMPARE_QUANTS
+    void compare(int pass) {
+        cout << "----------" << endl;
+        cout << "TIME: " << pass*dt << endl;
+        Quantities::compare(quantities(), initialQuants);
+    }
+#endif
+
+#if VISUALIZE
+    const vData &getDrawInfo() {
+        return bodyfold.posList;
+    }
+
+    double getSystemRadius() {
+
+        double maximum = 0;
+        for (int i = 0; i < NUM; i++)
+            maximum = max(maximum, bodyfold.posList[i].norm());
+
+        return maximum;
+    }
+#endif
 
     void dumpSystemStateString() {
 
@@ -337,14 +417,32 @@ public:
 
     }
 
-    bool isHalted(tuple<int, int> tup) {
-        int x, y;
-        tie(x, y) = tup;
-        if (x == 3 and y == 3)
-            return true;
-        if (x != -1 and x != 3 and y == 1)
-            return true;
-        return false;
+    //calculates important quantities
+    static Quantities calcQuantities(const initialData &init) {
+
+        Bodyfold bodyfold{init};
+
+        Vector2d mom = bodyfold.sumMomentum();
+        double kin = bodyfold.sumKineticEnergy();
+
+        double pot = calcPotential(bodyfold);
+
+        return {mom.x(), mom.y(), kin, pot};
+    };
+
+    static double calcPotential(const Bodyfold &bodyfold) {
+
+        double total = 0;
+
+        for (int i = 0; i < NUM; i++)
+            for (int j = i + 1; j < NUM; j++)
+            {
+                if (i != j)
+                    total += ((double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
+
+            }
+
+        return total;
     }
 
 };
