@@ -343,12 +343,12 @@ public:
                 if (result != get<0>(statuses.back())) {
                     statuses.emplace_back(result, time + pass * dt);
                     timeNeeded = (int)(T - (2*T/3)*(time == 0) + T*(time > 0));
-                    time += pass * dt;
+                    time += ceil(pass * dt);
                     pass = 0;
                 }
 
                 if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax) {
-                    time += pass * dt;
+                    time += ceil(pass * dt);
                     return false;
                 }
             }
@@ -356,7 +356,7 @@ public:
             doSymplecticIntegrator();
         }
 
-        time += pass*dt;
+        time += ceil(pass * dt);
         return true;
     }
 

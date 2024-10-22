@@ -8,7 +8,7 @@
 #include <semaphore.h>
 #include <sys/mman.h>
 
-#define SAMPLE 2400
+#define SAMPLE 1200
 #define COMPS 12
 #define PATHSTART "/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
 
