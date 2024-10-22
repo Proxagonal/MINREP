@@ -300,6 +300,7 @@ public:
     }
 
     void run() {
+        
         for (int pass = 0; pass*dt < T; pass++) {
             doSymplecticIntegrator();
 
@@ -308,9 +309,6 @@ public:
                 tuple<int, int> result = haltCheck();
                 cout << get<0>(result) << " " << get<1>(result) << endl;
             }
-            //TESTING:
-            //if (pass%200000 == 0)
-            //    onlyDissolveCheckTRY();
 #endif
 
 #if VISUALIZE
@@ -319,8 +317,6 @@ public:
                 if (!isWindowOpen())
                     break;
             }
-            //if (pass%10 == 0 && 1.1*pass*dt > T)
-            //    usleep(0);
 #endif
 #if COMPARE_QUANTS
             if (pass%comparePerPasses == 0) {
