@@ -300,8 +300,9 @@ public:
     }
 
     void run() {
-        
-        for (int pass = 0; pass*dt < T; pass++) {
+
+        for (long pass = 0; pass*dt < T; pass++) {
+
             doSymplecticIntegrator();
 
 #if HALTCHECK
