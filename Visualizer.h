@@ -6,6 +6,7 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 #include <SFML/System.hpp>
+#include <unistd.h>
 #include "Solver.h"
 
 #define RAD 0.5
@@ -87,6 +88,11 @@ public:
 
     void visualizationLoop(const array<Vector2d, NUM> &posList) {
 
+        wCount--;
+        if (wCount > 0)
+            return;
+        //usleep(10000);
+
         sf::Event event;
 
         while (window.pollEvent(event)) {
@@ -103,9 +109,6 @@ public:
                 break;
             }
         }
-        wCount--;
-        if (wCount > 0)
-            return;
 
         window.clear();
 
