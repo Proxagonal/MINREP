@@ -35,10 +35,6 @@ std::chrono::steady_clock::time_point now() {
     return std::chrono::steady_clock::now();
 }
 
-int heyo() {
-    
-}
-
 string intintTupleToString(tuple<int, int> tup) {
     int x, y;
     tie(x, y) = tup;
