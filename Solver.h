@@ -360,6 +360,30 @@ public:
         return true;
     }
 
+    bool run_TTBC(double initialEnergy, double divMax) {
+
+        statuses.emplace_back(haltCheck(), 0);
+
+        for (long pass = 0; pass*dt < T; pass++) {
+
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                if (result != get<0>(statuses.back()))
+                    statuses.emplace_back(result, pass * dt);
+
+                if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax) {
+                    time += ceil(pass * dt);
+                    return false;
+                }
+            }
+
+            doSymplecticIntegrator();
+        }
+
+        time = T;
+        return true;
+    }
+
 
 
     //calculates important quantities

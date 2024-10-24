@@ -10,7 +10,8 @@ add_executable(MINREP
         Quantities.h
         Bodyfold.h
         #HaltCheckTimeTester.cpp
-        EscapeAndNewDissolutionTester.cpp
+        #EscapeAndNewDissolutionTester.cpp
+        TryingToBreakChecks.cpp
         #mainTester.cpp
         #secondaryTester.cpp
 )
