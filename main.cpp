@@ -32,7 +32,7 @@ int main() {
 
     //Solver solver(100000, pow(10, -3), init); //000
 
-    Solver solver(100000, pow(10, -6));
+    Solver solver(100000, pow(10, -5)/2);
 
     auto start = now();
 

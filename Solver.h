@@ -302,8 +302,6 @@ public:
             if (pass%haltCheckPerPasses == 0) {
                 tuple<int, int> result = haltCheck();
                 cout << get<0>(result) << " " << get<1>(result) << endl;
-                if (result != tuple(-1, -1))
-                    return;
             }
 #endif
 
