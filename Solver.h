@@ -121,7 +121,8 @@ public:
     }
 
 
-    tuple<nat, nat> escapeCheck(vector<double> &distSquares) {
+
+    tuple<nat, nat> escapeCheck(const vector<double> &distSquares) {
 
         if (distSquares.at(0) > ratioSquare * distSquares.at(1))
             return {0, confirmEscape(distSquares, 0)};
@@ -135,7 +136,7 @@ public:
 
     // 0: Undecided, 1: Escape, 2: Locked?
     // NOTE: Can save many divisions, but this gets calculated so infrequently that it doesn't matter.
-    nat confirmEscape(vector<double> &distSquares, nat i) {
+    nat confirmEscape(const vector<double> &distSquares, const nat i) {
 
         int uno = (i + 1) % NUM;
         int dos = (i + 2) % NUM;
@@ -185,51 +186,44 @@ public:
         return 2;
     }
 
-    //double relativeVelocity_takenOff(const Vector2d &v1, const Vector2d &v2, )
 
     bool isDissolved(const vector<double> &distSquares) {
 
-        Vector2d relPos;
-        Vector2d relVel;
+        // for index i, sum of max veloicities of j, k that can be gained from potential energy of i
+        vector<double> c1_Plus_c2(NUM, 0);
 
-        vector<double> posPotentials;
-
-        nat j, k;
         for (nat i = 0; i < NUM; i++) {
-            j = (i + 1) % NUM;
-            posPotentials.emplace_back(G*bodyfold.massList[i]*bodyfold.massList[j]/sqrt(distSquares[i]));
+            nat j = (i + 1) % NUM;
+
+            const double i_j_Potential_noMass = G/sqrt(distSquares[i]);
+
+            //2*(Uij/mimj)*mi = 2*Uij/mj
+            c1_Plus_c2[i] += sqrt(2*i_j_Potential_noMass*bodyfold.massList[i]);
+            c1_Plus_c2[j] += sqrt(2*i_j_Potential_noMass*bodyfold.massList[j]);
+
         }
 
-        // Check that all bodies are moving away from eachother
+        // For each i, check for the two other bodies uno, dos, the w.c. velocity condition, AND w.c. epsilon condition
         for (nat i = 0; i < NUM; i++) {
 
-            j = (i + 1) % NUM;
-            k = (i + 2) % NUM;
+            const int uno = (i + 1) % NUM;
+            const int dos = (i + 2) % NUM;
 
-            relPos = bodyfold.posList[j] - bodyfold.posList[i];
-            relVel = bodyfold.velList[j] - bodyfold.velList[i];
+            Vector2d relPos = bodyfold.posList[dos] - bodyfold.posList[uno];
+            Vector2d relVel = bodyfold.velList[dos] - bodyfold.velList[uno];
+
+            const double r12 = sqrt(distSquares[uno]);
 
             // If anything going towards anything else: no.
             // New: In worst case, both velocities may decrease by as much as 2U/m in the direction of the other body. Checks it.
-            // (v2-v1)*r12 -> (v2 + c1*ehat - (v1 + c2*ohat))*r12 = (v2-v1)*r12 + (c1*ehat - c2*ohat)*r12
-            // This is smallest when ehat=-r12_hat, ohat=-ehat. Therefor, worst case: v12*r12 - (c1+c2)|r12|
+            // (v2-v1)*r12 -> (v2 + c2*ohat - (v1 + c1*ehat))*r12 = (v2-v1)*r12 + (- c1*ehat + c2*ohat)*r12
+            // This is smallest when ehat=r12_hat, ohat=-ehat. Therefor, worst case you need: v12*r12 - (c1+c2)|r12| <= 0
 
-            double worstCase = 2*posPotentials[j]/bodyfold.massList[j] + 2*posPotentials[k]/bodyfold.massList[i];
-
-            if (relPos.dot(relVel) <= worstCase)
+            if (relPos.dot(relVel) - c1_Plus_c2[i] * r12 <= 0)
                 return false;
-        }
 
-        for (int i = 0; i < NUM; i++) {
 
-            int uno = (i + 1) % NUM;
-            int dos = (i + 2) % NUM;
-
-            relVel = bodyfold.velList[dos] - bodyfold.velList[uno];
-
-            double deltavUno = (2/bodyfold.massList[uno])*posPotentials[i]; // potential between i and uno
-            double deltavDos = (2/bodyfold.massList[dos])*posPotentials[dos]; // potential between dos and i
-            double reducedPosPotential = G*(bodyfold.massList[uno]+bodyfold.massList[dos])/sqrt(distSquares[uno]);
+            double reducedPosPotential = G*(bodyfold.massList[uno]+bodyfold.massList[dos])/r12;
 
             // If not enough energy to escape eachother: no.
             // New: In worst case, both velocities may decrease by as much as 2U/m, in some direction.
@@ -239,7 +233,7 @@ public:
             // Then, of course if v = v1-v2 is the original vector, you reduce its magnitude most by going in the opposite direction until you reach 0.
             // Therefore, have e' + o' be in direction -v, with magnitude as big as possible (which is 2). That is unless you'll go further than 0,
             // Then you just want to make them do a zigzag to reach 0 exactly. This is M.
-            double M = max(0.0, relVel.norm() - deltavUno - deltavDos);
+            double M = max(0.0, relVel.norm() - c1_Plus_c2[i]);
             //cout << "M: " << M << endl;
             //cout << "reduced potential: " << reducedPotential << endl;
             //cout << "dvs: " << deltavUno << ", " << deltavDos << endl;
@@ -251,6 +245,56 @@ public:
         }
 
         return true;
+    }
+
+    bool heuristicDissolution() {
+        for (nat i = 0; i < NUM; i++) {
+
+            int j = (i + 1) % NUM;
+            int k = (i + 2) % NUM;
+
+            Vector2d relPos = bodyfold.posList[j] - bodyfold.posList[i];
+            Vector2d relVel = bodyfold.velList[j] - bodyfold.velList[i];
+
+            if (relPos.dot(relVel) <= 0)
+                return false;
+        }
+
+        return true;
+    }
+
+    bool heuristicEscape() {
+
+        vector<double> distSquares;
+
+        nat j;
+        for (nat i = 0; i < NUM; i++) {
+            j = (i + 1) % NUM;
+            distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
+        }
+
+        int i = -1;
+
+        if (distSquares.at(0) > ratioSquare * distSquares.at(1))
+            i = 0;
+        if (ratioSquare * distSquares.at(0) < distSquares.at(1))
+            i = 2;
+        if (ratioSquare * distSquares.at(2) < distSquares.at(1))
+            i = 1;
+
+        if (i == -1)
+            return false;
+
+        int uno = (i + 1) % NUM;
+        int dos = (i + 2) % NUM;
+
+        Vector2d binaryCOMVel = bodyfold.velList[uno]
+                        + massRatios[i] * (bodyfold.velList[dos] - bodyfold.velList[uno]);
+        Vector2d binaryCOM = bodyfold.posList[uno]
+                    + massRatios[i] * (bodyfold.posList[dos] - bodyfold.posList[uno]);
+
+        return ((binaryCOMVel - bodyfold.velList[i]).dot(bodyfold.velList[i] - binaryCOM) <= 0);
+
     }
 
 #endif
@@ -302,7 +346,7 @@ public:
     }
 
     void run() {
-        for (int pass = 0; pass*dt < T; pass++) {
+        for (long pass = 0; pass*dt < T; pass++) {
             doSymplecticIntegrator();
 
 #if HALTCHECK
@@ -375,6 +419,28 @@ public:
                     time += ceil(pass * dt);
                     return false;
                 }
+            }
+
+            doSymplecticIntegrator();
+        }
+
+        time = T;
+        return true;
+    }
+
+    bool run_GFNOC(double divMax) {
+
+        double initialEnergy = getEnergy();
+
+        for (long pass = 0; pass*dt < T; pass++) {
+
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                if (result != tuple(-1, -1)
+                    || abs((getEnergy() - initialEnergy)/initialEnergy) > divMax)
+                    return false;
+
+
             }
 
             doSymplecticIntegrator();
