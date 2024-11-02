@@ -16,23 +16,23 @@ std::chrono::steady_clock::time_point now() {
 
 int main() {
 
-    string str = "Body #0:\n"
-"Mass: 1.390725509697576\n"
-"Position: 6.609606267054577 -2.982757036320367\n"
-"Velocity: -2.898762591259914 -3.721404424492462\n"
-"Body #1:\n"
-"Mass: 1.527654750445846\n"
-"Position: 1.449709406287688 0.4392421898296379\n"
-"Velocity: 2.592529431038656 0.7475692027890037\n"
-"Body #2:\n"
-"Mass: 1.52205015532158\n"
-"Position: -7.494367689559578 2.284540932894901\n"
-"Velocity: 0.04657742780516827 2.649994421677434\n";
+    string str = R"(Body #0:
+Mass: 0.7694637043255976
+Position:  14.8128184998246 9.645406071895257
+Velocity: -0.7639044901223144   1.858317864613163
+Body #1:
+Mass: 0.9284925344733082
+Position: -0.4409369359841637 -0.7505411273355911
+Velocity:   2.35534821712638 -1.082280055878264
+Body #2:
+Mass: 1.369495421772004
+Position: -8.023772381016652 -4.910507874175599
+Velocity:  -1.167675650129055 -0.3103472922000856)";
     initialData init = Bodyfold::stringToInitialData(str);
 
-    //Solver solver(100000, pow(10, -3), init); //000
+    Solver solver(100000, pow(10, -3), init); //000
 
-    Solver solver(100000, pow(10, -5)/2);
+    //Solver solver(100000, pow(10, -5)/2);
 
     auto start = now();
 

@@ -297,6 +297,7 @@ public:
         for (long pass = 0; pass*dt < T; pass++) {
 
             doSymplecticIntegrator();
+            //usleep(1);
 
 #if HALTCHECK
             if (pass%haltCheckPerPasses == 0) {
