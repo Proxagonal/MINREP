@@ -29,6 +29,10 @@ class Solver {
 
 public:
 
+    static const std::array<std::string, 3> GNFOC_Statuses;
+    static constexpr int GNFOC_StatusesAmount = GNFOC_Statuses.size();
+
+
     const int T;
     const double dt;
     const int haltCheckPerPasses = 1/dt;
@@ -438,7 +442,7 @@ public:
         return true;
     }
 
-    bool run_GFNOC(double divMax) {
+    int run_GFNOC(double divMax) {
 
         double initialEnergy = getEnergy();
 
@@ -448,19 +452,19 @@ public:
 
             if (pass%haltCheckPerPasses == 0) {
                 tuple<int, int> result = haltCheck();
-                if (result != tuple(-1, -1)
-                    || abs((getEnergy() - initialEnergy)/initialEnergy) > divMax)
-                    return false;
-
+                if (result != tuple(-1, -1))
+                    return 0;
+                if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax)
+                    return 1;
                 if (!heuristicLocker(heuristicEscape(), hEscape) || !heuristicLocker(heuristicEscape(), hDiss))
-                    return false;
+                    return 2;
             }
 
             doSymplecticIntegrator();
         }
 
         time = T;
-        return true;
+        return -1;
     }
 
 
@@ -549,5 +553,8 @@ public:
     }
 
 };
+
+inline const std::array<std::string, 3> Solver::GNFOC_Statuses = {"Got Prediction", "Energy Inaccurate", "Regretted Heuristic"};
+
 
 #endif
