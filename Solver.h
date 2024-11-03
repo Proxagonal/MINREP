@@ -10,8 +10,8 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS false
-#define HALTCHECK true
+#define COMPARE_QUANTS true
+#define HALTCHECK false
 
 #if VISUALIZE
 #include <unistd.h>
@@ -33,20 +33,22 @@ private:
     const double dt;
 
 
+#if HALTCHECK
     static const int haltCheckPerPasses = 2000000;
     static const int ratio = 10;
     static const int ratioSquare = ratio*ratio;
+#endif
 
     Bodyfold bodyfold;
     vector<double> massRatios;
 
 #if VISUALIZE
     Visualizer visuals;
-    const int framePerPasses = 5000;
+    const int framePerPasses = 500;
 #endif
 #if COMPARE_QUANTS
     Quantities initialQuants;
-    const int comparePerPasses = 20000000;
+    const int comparePerPasses = 20000;
 #endif
 
     //returns initial conditions of system
@@ -297,7 +299,7 @@ public:
         for (long pass = 0; pass*dt < T; pass++) {
 
             doSymplecticIntegrator();
-            //usleep(1);
+            usleep(1);
 
 #if HALTCHECK
             if (pass%haltCheckPerPasses == 0) {

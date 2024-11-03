@@ -23,7 +23,7 @@ private:
     const vector<sf::Color> colors = {sf::Color(255, 50, 50),
                                       sf::Color(50, 255, 50),
                                       sf::Color(50, 50, 255)};
-    static constexpr int wSkips = 1000;
+    static constexpr int wSkips = 1000/10;
     int wCount = 0;
 
     sf::RenderWindow window;
