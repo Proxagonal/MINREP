@@ -13,7 +13,7 @@
 using namespace std;
 using namespace Eigen;
 
-constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10 - 1;
+constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10;
 
 
 void printMils(std::chrono::steady_clock::time_point start, std::chrono::steady_clock::time_point end) {

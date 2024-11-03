@@ -15,7 +15,7 @@
 using namespace std;
 using namespace Eigen;
 
-constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10 - 1;
+constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10;
 
 struct InterProcessCounter {
     int counter;
@@ -167,8 +167,6 @@ int main() {
             goodSystemResults << "REAL TIME: ";
             streamMils(goodSystemResults, start, end);
             goodSystemResults << "SIM TIME: " << solver.time << endl;
-            goodSystemResults << "HALTING STATUSES: " << getStatuses(solver.statuses) << endl;
-            goodSystemResults << "HALTING TIMES: " << getTimes(solver.statuses) << endl;
         }
 
     }

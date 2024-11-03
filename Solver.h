@@ -293,7 +293,17 @@ public:
         Vector2d binaryCOM = bodyfold.posList[uno]
                     + massRatios[i] * (bodyfold.posList[dos] - bodyfold.posList[uno]);
 
-        return ((binaryCOMVel - bodyfold.velList[i]).dot(bodyfold.velList[i] - binaryCOM) <= 0);
+        return ((binaryCOMVel - bodyfold.velList[i]).dot(binaryCOM - bodyfold.posList[i]) > 0);
+
+    }
+
+    bool heuristicLocker(bool result, bool &flag) {
+
+        if (result && !flag)
+            flag = true;
+        if (!result && flag)
+            return false;
+        return true;
 
     }
 
@@ -432,6 +442,8 @@ public:
 
         double initialEnergy = getEnergy();
 
+        bool hEscape = false, hDiss = false;
+
         for (long pass = 0; pass*dt < T; pass++) {
 
             if (pass%haltCheckPerPasses == 0) {
@@ -440,7 +452,8 @@ public:
                     || abs((getEnergy() - initialEnergy)/initialEnergy) > divMax)
                     return false;
 
-
+                if (!heuristicLocker(heuristicEscape(), hEscape) || !heuristicLocker(heuristicEscape(), hDiss))
+                    return false;
             }
 
             doSymplecticIntegrator();

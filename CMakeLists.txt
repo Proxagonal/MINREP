@@ -11,7 +11,7 @@ add_executable(MINREP
         Bodyfold.h
         #HaltCheckTimeTester.cpp
         #EscapeAndNewDissolutionTester.cpp
-        TryingToBreakChecks.cpp
+        #TryingToBreakChecks.cpp
         GetFalseNegativesOfChecks.cpp
         #mainTester.cpp
         #secondaryTester.cpp
