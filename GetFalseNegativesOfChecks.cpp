@@ -147,7 +147,7 @@ int main() {
 
         auto start = now();
         Solver solver(T, dt, rando);
-        bool finishedCorrectly = solver.run_TTBC(energyBefore, MAX_ENERGY_DEVIATION);
+        bool finishedCorrectly = solver.run_GFNOC(MAX_ENERGY_DEVIATION);
         auto end = now();
 
         double energyAfter = solver.quantities().E();
