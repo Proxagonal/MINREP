@@ -301,7 +301,6 @@ public:
             doSymplecticIntegrator();
             //usleep(1);
 
-            if (pass*dt > 100000) {
 #if HALTCHECK
                 if (pass%haltCheckPerPasses == 0) {
                     tuple<int, int> result = haltCheck();
@@ -317,7 +316,6 @@ public:
                         break;
                 }
 #endif
-            }
 #if COMPARE_QUANTS
             if (pass%comparePerPasses == 0) {
                 compare(pass);
