@@ -17,17 +17,17 @@ static const array<string, SIZE> namesWithColons = {"Momentum X: ", "Momentum Y:
 class Quantities {
 
 private:
-    constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10;
+    constexpr static int ALLDIGITS = std::numeric_limits<long double>::max_digits10;
 
 public:
 
-    array<double, SIZE> quants;
+    array<long double, SIZE> quants;
 
 
-    Quantities (double xMomentum,
-                double yMomentum,
-                double kineticEnergy,
-                double potentialEnergy):
+    Quantities (long double xMomentum,
+                long double yMomentum,
+                long double kineticEnergy,
+                long double potentialEnergy):
                 quants{xMomentum,yMomentum,kineticEnergy + potentialEnergy,kineticEnergy,potentialEnergy}
     {
     }
@@ -43,11 +43,11 @@ public:
         return ss.str();
     }
 
-    double E() {
+    long double E() {
         return quants.at(2);
     }
 
-    static double deviation(double x, double y) {
+    static long double deviation(long double x, long double y) {
         if (y == 0)
             return x;
         return (x-y)/y;

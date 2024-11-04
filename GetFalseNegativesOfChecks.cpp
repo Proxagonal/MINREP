@@ -15,7 +15,7 @@
     using namespace std;
     using namespace Eigen;
 
-    constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10;
+    constexpr static int ALLDIGITS = std::numeric_limits<long double>::max_digits10;
 
     struct InterProcessDoubleCounter {
         int counter;
@@ -46,14 +46,14 @@
         return "(" + to_string(x) + ", " + to_string(y) + ")";
     }
 
-    string getStatuses(vector<tuple<tuple<int, int>, double>> &vtup) {
+    string getStatuses(vector<tuple<tuple<int, int>, long double>> &vtup) {
         stringstream ss;
         for (auto &tup: vtup)
             ss << intintTupleToString(get<0>(tup)) << " | ";
         return ss.str();
     }
 
-    string getTimes(vector<tuple<tuple<int, int>, double>> &vtup) {
+    string getTimes(vector<tuple<tuple<int, int>, long double>> &vtup) {
         stringstream ss;
         ss.precision(ALLDIGITS);
         for (auto &x: vtup)
@@ -61,7 +61,7 @@
         return ss.str();
     }
 
-    string getPowEnergyInfos(vector<tuple<int, double>> &infos) {
+    string getPowEnergyInfos(vector<tuple<int, long double>> &infos) {
         stringstream ss;
         ss.precision(ALLDIGITS);
         for (auto &x: infos)
@@ -69,7 +69,7 @@
         return ss.str();
     }
 
-    string getTimeInfos(vector<tuple<double>> &infos) {
+    string getTimeInfos(vector<tuple<long double>> &infos) {
         stringstream ss;
         ss.precision(ALLDIGITS);
         for (auto &x: infos)
@@ -77,13 +77,13 @@
         return ss.str();
     }
 
-    double deviation(double x, double xAfter) {
+    long double deviation(long double x, long double xAfter) {
         return abs((x-xAfter)/x);
     }
 
     mode_t mode = 0666 | S_IRWXU | S_IRWXG | S_IRWXO;
 
-    const double MAX_ENERGY_DEVIATION = pow(10, -5); //6?-----------------------------
+    const long double MAX_ENERGY_DEVIATION = pow(10, -5); //6?-----------------------------
 
     int main() {
 
@@ -133,7 +133,7 @@
         bool isLastSuccess = false;
         int finishStatNum = -1;
 
-        int T = 40000;
+        int T = 400000;
 
         int POW = -3;
 
@@ -174,9 +174,9 @@
 
             initialData rando = Bodyfold::generateRandomCOM();
 
-            double energyBefore = Solver::calcQuantities(rando).E();
+            long double energyBefore = Solver::calcQuantities(rando).E();
 
-            double dt = pow(10, POW);
+            long double dt = pow(10, POW);
 
             auto start = now();
             Solver solver(T, dt, rando);

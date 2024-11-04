@@ -18,10 +18,10 @@ using namespace Eigen;
 #endif
 
 #define ORDER 4
-static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
-static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
+static const array<long double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
+static const array<long double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
 
-static const double G = 4*M_PI*M_PI;
+static const long double G = 4*M_PI*M_PI;
 
 typedef uint_fast8_t nat;
 
@@ -34,17 +34,17 @@ public:
 
 
     const int T;
-    const double dt;
+    const long double dt;
     const int haltCheckPerPasses = 1/dt;
-    double time = 0;
+    long double time = 0;
 
     static const int ratio = 10;
     static const int ratioSquare = ratio*ratio;
 
     Bodyfold bodyfold;
-    vector<double> massRatios;
+    vector<long double> massRatios;
 
-    vector<tuple<tuple<int, int>, double>> statuses;
+    vector<tuple<tuple<int, int>, long double>> statuses;
 
 #if VISUALIZE
     Visualizer visuals;
@@ -98,7 +98,7 @@ public:
 
     tuple<int, int> haltCheck() {
 
-        vector<double> distSquares;
+        vector<long double> distSquares;
 
         nat j;
         for (nat i = 0; i < NUM; i++) {
@@ -126,7 +126,7 @@ public:
 
 
 
-    tuple<nat, nat> escapeCheck(const vector<double> &distSquares) {
+    tuple<nat, nat> escapeCheck(const vector<long double> &distSquares) {
 
         if (distSquares.at(0) > ratioSquare * distSquares.at(1))
             return {0, confirmEscape(distSquares, 0)};
@@ -140,24 +140,24 @@ public:
 
     // 0: Undecided, 1: Escape, 2: Locked?
     // NOTE: Can save many divisions, but this gets calculated so infrequently that it doesn't matter.
-    nat confirmEscape(const vector<double> &distSquares, const nat i) {
+    nat confirmEscape(const vector<long double> &distSquares, const nat i) {
 
         int uno = (i + 1) % NUM;
         int dos = (i + 2) % NUM;
 
-        double mu = bodyfold.massList[uno];
-        double md = bodyfold.massList[dos];
-        double mu_ud = G*(mu + md);
+        long double mu = bodyfold.massList[uno];
+        long double md = bodyfold.massList[dos];
+        long double mu_ud = G*(mu + md);
         Vector2d velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
 
 
-        double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / sqrt(distSquares[uno]);
+        long double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / sqrt(distSquares[uno]);
 
         // This means the binary isn't bound
         if (epsilon_ud >= 0)
             return 0;
 
-        double ellipseMajor_ud = -mu_ud/epsilon_ud;
+        long double ellipseMajor_ud = -mu_ud/epsilon_ud;
 
         // This means the approximation will not be good at apoapsis
         // Multiply by eps^2 for no division
@@ -172,10 +172,10 @@ public:
 
         Vector2d deltaPosWholeSystem = bodyfold.posList[i] - binaryCOM;
         Vector2d deltaVelWholeSystem = bodyfold.velList[i] - binaryCOMVel;
-        double muWholeSystem = mu_ud + G*bodyfold.massList[i];
+        long double muWholeSystem = mu_ud + G*bodyfold.massList[i];
 
 
-        double epsilonWholeSystem = deltaVelWholeSystem.squaredNorm()/2
+        long double epsilonWholeSystem = deltaVelWholeSystem.squaredNorm()/2
                                     - muWholeSystem / deltaPosWholeSystem.norm();
 
         if (epsilonWholeSystem > 0)
@@ -183,7 +183,7 @@ public:
             // If true then escaping away: therefore return code 1
             return deltaPosWholeSystem.dot(deltaVelWholeSystem) > 0;
 
-        //double ellipseMajorWholeSystem = -muWholeSystem/epsilonWholeSystem;
+        //long double ellipseMajorWholeSystem = -muWholeSystem/epsilonWholeSystem;
 
         // Suspicion of Hierarchical triple system. What this is technically is that both
         // the nested and big two body systems are bound.
@@ -191,15 +191,15 @@ public:
     }
 
 
-    bool isDissolved(const vector<double> &distSquares) {
+    bool isDissolved(const vector<long double> &distSquares) {
 
         // for index i, sum of max veloicities of j, k that can be gained from potential energy of i
-        vector<double> c1_Plus_c2(NUM, 0);
+        vector<long double> c1_Plus_c2(NUM, 0);
 
         for (nat i = 0; i < NUM; i++) {
             nat j = (i + 1) % NUM;
 
-            const double i_j_Potential_noMass = G/sqrt(distSquares[i]);
+            const long double i_j_Potential_noMass = G/sqrt(distSquares[i]);
 
             //2*(Uij/mimj)*mi = 2*Uij/mj
             c1_Plus_c2[i] += sqrt(2*i_j_Potential_noMass*bodyfold.massList[i]);
@@ -216,7 +216,7 @@ public:
             Vector2d relPos = bodyfold.posList[dos] - bodyfold.posList[uno];
             Vector2d relVel = bodyfold.velList[dos] - bodyfold.velList[uno];
 
-            const double r12 = sqrt(distSquares[uno]);
+            const long double r12 = sqrt(distSquares[uno]);
 
             // If anything going towards anything else: no.
             // New: In worst case, both velocities may decrease by as much as 2U/m in the direction of the other body. Checks it.
@@ -227,7 +227,7 @@ public:
                 return false;
 
 
-            double reducedPosPotential = G*(bodyfold.massList[uno]+bodyfold.massList[dos])/r12;
+            long double reducedPosPotential = G*(bodyfold.massList[uno]+bodyfold.massList[dos])/r12;
 
             // If not enough energy to escape eachother: no.
             // New: In worst case, both velocities may decrease by as much as 2U/m, in some direction.
@@ -237,7 +237,7 @@ public:
             // Then, of course if v = v1-v2 is the original vector, you reduce its magnitude most by going in the opposite direction until you reach 0.
             // Therefore, have e' + o' be in direction -v, with magnitude as big as possible (which is 2). That is unless you'll go further than 0,
             // Then you just want to make them do a zigzag to reach 0 exactly. This is M.
-            double M = max(0.0, relVel.norm() - c1_Plus_c2[i]);
+            long double M = max(static_cast<long double>(0.0), relVel.norm() - c1_Plus_c2[i]);
             //cout << "M: " << M << endl;
             //cout << "reduced potential: " << reducedPotential << endl;
             //cout << "dvs: " << deltavUno << ", " << deltavDos << endl;
@@ -269,7 +269,7 @@ public:
 
     bool heuristicEscape() {
 
-        vector<double> distSquares;
+        vector<long double> distSquares;
 
         nat j;
         for (nat i = 0; i < NUM; i++) {
@@ -314,15 +314,15 @@ public:
 #endif
 
     //calculates potential energy
-    double calcPotential() {
+    long double calcPotential() {
 
-        double total = 0;
+        long double total = 0;
 
         for (int i = 0; i < NUM; i++)
             for (int j = i + 1; j < NUM; j++)
             {
                 if (i != j)
-                    total += ((double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
+                    total += ((long double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
 
             }
 
@@ -338,7 +338,7 @@ public:
 
 public:
 
-    Solver(int givenT, double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}
+    Solver(int givenT, long double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}
 #if VISUALIZE
     , visuals{800, 800, getSystemRadius()}
 #endif
@@ -387,7 +387,7 @@ public:
         }
     }
 
-    bool run_EANDT_TCYCLE(double initialEnergy, double divMax) {
+    bool run_EANDT_TCYCLE(long double initialEnergy, long double divMax) {
 
         int timeNeeded = T;
         long pass = 0;
@@ -418,7 +418,7 @@ public:
         return true;
     }
 
-    bool run_TTBC(double initialEnergy, double divMax) {
+    bool run_TTBC(long double initialEnergy, long double divMax) {
 
         statuses.emplace_back(haltCheck(), 0);
 
@@ -442,9 +442,9 @@ public:
         return true;
     }
 
-    int run_GFNOC(double divMax) {
+    int run_GFNOC(long double divMax) {
 
-        double initialEnergy = getEnergy();
+        long double initialEnergy = getEnergy();
 
         bool hEscape = false, hDiss = false;
 
@@ -473,14 +473,14 @@ public:
     Quantities quantities() {
 
         Vector2d mom = bodyfold.sumMomentum();
-        double kin = bodyfold.sumKineticEnergy();
+        long double kin = bodyfold.sumKineticEnergy();
 
-        double pot = calcPotential();
+        long double pot = calcPotential();
 
         return {mom.x(), mom.y(), kin, pot};
     };
 
-    double getEnergy() {
+    long double getEnergy() {
         return bodyfold.sumKineticEnergy() + calcPotential();
     }
 
@@ -497,9 +497,9 @@ public:
         return bodyfold.posList;
     }
 
-    double getSystemRadius() {
+    long double getSystemRadius() {
 
-        double maximum = 0;
+        long double maximum = 0;
         for (int i = 0; i < NUM; i++)
             maximum = max(maximum, bodyfold.posList[i].norm());
 
@@ -530,22 +530,22 @@ public:
         Bodyfold bodyfold{init};
 
         Vector2d mom = bodyfold.sumMomentum();
-        double kin = bodyfold.sumKineticEnergy();
+        long double kin = bodyfold.sumKineticEnergy();
 
-        double pot = calcPotential(bodyfold);
+        long double pot = calcPotential(bodyfold);
 
         return {mom.x(), mom.y(), kin, pot};
     };
 
-    static double calcPotential(const Bodyfold &bodyfold) {
+    static long double calcPotential(const Bodyfold &bodyfold) {
 
-        double total = 0;
+        long double total = 0;
 
         for (int i = 0; i < NUM; i++)
             for (int j = i + 1; j < NUM; j++)
             {
                 if (i != j)
-                    total += ((double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
+                    total += ((long double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
 
             }
 
