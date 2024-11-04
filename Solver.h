@@ -10,8 +10,8 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS true
-#define HALTCHECK false
+#define COMPARE_QUANTS false
+#define HALTCHECK true
 
 #if VISUALIZE
 #include <unistd.h>
@@ -34,7 +34,7 @@ private:
 
 
 #if HALTCHECK
-    static const int haltCheckPerPasses = 2000000;
+    static const int haltCheckPerPasses = 20000;
     static const int ratio = 10;
     static const int ratioSquare = ratio*ratio;
 #endif
@@ -44,7 +44,7 @@ private:
 
 #if VISUALIZE
     Visualizer visuals;
-    const int framePerPasses = 500;
+    const int framePerPasses = 100;
 #endif
 #if COMPARE_QUANTS
     Quantities initialQuants;
@@ -299,22 +299,25 @@ public:
         for (long pass = 0; pass*dt < T; pass++) {
 
             doSymplecticIntegrator();
-            usleep(1);
+            //usleep(1);
 
+            if (pass*dt > 100000) {
 #if HALTCHECK
-            if (pass%haltCheckPerPasses == 0) {
-                tuple<int, int> result = haltCheck();
-                cout << get<0>(result) << " " << get<1>(result) << endl;
-            }
+                if (pass%haltCheckPerPasses == 0) {
+                    tuple<int, int> result = haltCheck();
+                    cout << get<0>(result) << " " << get<1>(result) << endl;
+                    cout << pass*dt << endl;
+                }
 #endif
 
 #if VISUALIZE
-            if (pass%framePerPasses == 0) {
-                visuals.visualizationLoop(getDrawInfo());
-                if (!isWindowOpen())
-                    break;
-            }
+                if (pass%framePerPasses == 0) {
+                    visuals.visualizationLoop(getDrawInfo());
+                    if (!isWindowOpen())
+                        break;
+                }
 #endif
+            }
 #if COMPARE_QUANTS
             if (pass%comparePerPasses == 0) {
                 compare(pass);
