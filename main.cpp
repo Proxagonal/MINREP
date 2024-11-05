@@ -16,7 +16,7 @@ std::chrono::steady_clock::time_point now() {
 
 int main() {
 
-    Solver solver(100000, pow(10, -6)/2);
+    Solver solver(100000, pow(10, -6));
 
     auto start = now();
 

@@ -5,6 +5,8 @@
 #include "Bodyfold.h"
 #include "Quantities.h"
 #include "Visualizer.h"
+#include <stdexcept>
+
 
 using namespace std;
 using namespace Eigen;
@@ -31,6 +33,12 @@ public:
 
     static const std::array<std::string, 3> GNFOC_Statuses;
     static constexpr int GNFOC_StatusesAmount = GNFOC_Statuses.size();
+    vector<tuple<tuple<int, int>, long double>> statuses;
+
+    vector<long double> ISI_times;
+    vector<tuple<Vector2d, Vector2d, Vector2d>> ISI_positions;
+    vector<tuple<Vector2d, Vector2d, Vector2d>> ISI_velocities;
+    long double ISI_hEscapeTime = -1, ISI_hDissTime = -1;
 
 
     const int T;
@@ -43,8 +51,6 @@ public:
 
     Bodyfold bodyfold;
     vector<long double> massRatios;
-
-    vector<tuple<tuple<int, int>, long double>> statuses;
 
 #if VISUALIZE
     Visualizer visuals;
@@ -301,7 +307,18 @@ public:
 
     }
 
-    bool heuristicLocker(bool result, bool &flag) {
+    static bool heuristicLocker(const bool result, bool &flag, long double &tMaybe, const long double current) {
+
+        if (result && !flag) {
+            flag = true;
+            tMaybe = current;
+        }
+        if (!result && flag)
+            return false;
+        return true;
+    }
+
+    static bool heuristicLocker(const bool result, bool &flag) {
 
         if (result && !flag)
             flag = true;
@@ -456,7 +473,7 @@ public:
                     return 0;
                 if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax)
                     return 1;
-                if (!heuristicLocker(heuristicEscape(), hEscape) || !heuristicLocker(heuristicEscape(), hDiss))
+                if (!heuristicLocker(heuristicEscape(), hEscape) || !heuristicLocker(heuristicDissolution(), hDiss))
                     return 2;
             }
 
@@ -467,7 +484,62 @@ public:
         return -1;
     }
 
+    /*
+    *         statuses.emplace_back(haltCheck(), 0);
 
+        for (pass = 0; pass*dt < timeNeeded; pass++) {
+
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                if (result != get<0>(statuses.back())) {
+                    statuses.emplace_back(result, time + pass * dt);
+     */
+
+    void run_ISI(long double divMax) {
+
+        long double initialEnergy = getEnergy();
+
+        bool hEscape = false, hDiss = false;
+
+        statuses.emplace_back(haltCheck(), 0);
+
+        for (long pass = 0; pass*dt < T; pass++) {
+
+            if (pass%haltCheckPerPasses == 0) {
+
+                ISI_times.emplace_back(pass*dt);
+                ISI_positions.emplace_back(as_tuple(bodyfold.posList));
+                ISI_velocities.emplace_back(as_tuple(bodyfold.velList));
+
+                tuple<int, int> result = haltCheck();
+                if (result != get<0>(statuses.back()))
+                    statuses.emplace_back(haltCheck(), pass*dt);;
+                if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax)
+                    throw std::invalid_argument("NOT EA AT " + to_string(pass*dt));
+                if (!heuristicLocker(heuristicEscape(), hEscape, ISI_hEscapeTime, pass*dt) || !heuristicLocker(heuristicDissolution(), hDiss, ISI_hDissTime, pass*dt))
+                    return throw std::invalid_argument("HEURISTICALLY BAD AT " + to_string(pass*dt));;
+            }
+
+            doSymplecticIntegrator();
+        }
+
+        time = T;
+    }
+
+
+
+    template <size_t N, size_t... Is>
+    tuple<Vector2d, Vector2d, Vector2d> as_tuple(std::array<Vector2d, N> const& arr, std::index_sequence<Is...>)
+    {
+        return std::make_tuple(arr[Is]...);
+    }
+
+    // User-facing function that generates an index sequence
+    template <size_t N>
+    tuple<Vector2d, Vector2d, Vector2d> as_tuple(std::array<Vector2d, N> const& arr)
+    {
+        return as_tuple(arr, std::make_index_sequence<N>{});
+    }
 
     //calculates important quantities
     Quantities quantities() {

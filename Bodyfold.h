@@ -187,6 +187,24 @@ public:
         return ss.str();
     }
 
+    static initialData stringToInitialData(string &str) {
+        initialData bodies;
+        istringstream iss(str);
+        string line;
+        double mass, posX, posY, velX, velY;
+        while (getline(iss, line)) {
+            if (line.find("Mass") != string::npos) {
+                stringstream(line.substr(line.find(":") + 1)) >> mass;
+                getline(iss, line);  // Position line
+                stringstream(line.substr(line.find(":") + 1)) >> posX >> posY;
+                getline(iss, line);  // Velocity line
+                stringstream(line.substr(line.find(":") + 1)) >> velX >> velY;
+                bodies.emplace_back(mass, Eigen::Vector2d(posX, posY), Eigen::Vector2d(velX, velY));
+            }
+        }
+        return bodies;
+    }
+
 };
 
 #endif
