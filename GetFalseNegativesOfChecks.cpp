@@ -8,7 +8,7 @@
 #include <semaphore.h>
 #include <sys/mman.h>
 
-#define SAMPLE 50000
+#define SAMPLE 100000
 #define COMPS 12
 #define PATHSTART "/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
 
@@ -133,7 +133,7 @@ int main() {
     bool isLastSuccess = false;
     int finishStatNum = -1;
 
-    int T = 400000;
+    int T = 40000;
 
     int POW = -3;
 
@@ -143,11 +143,11 @@ int main() {
 
         pthread_mutex_lock(&systemsLeft->mutex);
         left = systemsLeft->counter;
-        succ = systemsLeft->counter2;
-        if (left > 0)
-            systemsLeft->counter--;
+        //if (left > 0)
+        //    systemsLeft->counter--;
         if (isLastSuccess)
             systemsLeft->counter2++;
+        succ = systemsLeft->counter2;
         pthread_mutex_unlock(&systemsLeft->mutex);
 
         if (finishStatNum != -1) {
@@ -156,7 +156,7 @@ int main() {
             pthread_mutex_unlock(&statusCounters[finishStatNum]->mutex);
         }
 
-        if (left == 0)
+        if (left <= 0)
             break;
 
         if (left % 100 == 0) {
@@ -186,7 +186,7 @@ int main() {
         // If good energy conservation
         if (isLastSuccess = (finishStatNum == -1)) {
 
-            goodSystemResults << "SYSTEM " << iGood++ << ": ";
+            goodSystemResults << "SYSTEM " << iGood++ << ": " << endl;
             goodSystemResults << Bodyfold::toString(rando);
             goodSystemResults << Solver::calcQuantities(rando).toString();
 
@@ -197,8 +197,14 @@ int main() {
             goodSystemResults << "REAL TIME: ";
             streamMils(goodSystemResults, start, end);
             goodSystemResults << "SIM TIME: " << solver.time << endl;
+            goodSystemResults << "ESCAPE HEURISTIC: " << solver.ISI_hEscape << endl;
+            goodSystemResults << "DISS HEURISTIC: " << solver.ISI_hDiss << endl;
         }
 
+        pthread_mutex_lock(&systemsLeft->mutex);
+        if (left > 0)
+            systemsLeft->counter--;
+        pthread_mutex_unlock(&systemsLeft->mutex);
     }
 
     goodSystemResults.flush();

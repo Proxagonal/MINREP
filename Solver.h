@@ -35,10 +35,8 @@ public:
     static constexpr int GNFOC_StatusesAmount = GNFOC_Statuses.size();
     vector<tuple<tuple<int, int>, long double>> statuses;
 
-    vector<long double> ISI_times;
-    vector<tuple<Vector2d, Vector2d, Vector2d>> ISI_positions;
-    vector<tuple<Vector2d, Vector2d, Vector2d>> ISI_velocities;
-    long double ISI_hEscapeTime = -1, ISI_hDissTime = -1;
+    bool ISI_hEscape = false, ISI_hDiss = false;
+
 
 
     const int T;
@@ -261,7 +259,6 @@ public:
         for (nat i = 0; i < NUM; i++) {
 
             int j = (i + 1) % NUM;
-            int k = (i + 2) % NUM;
 
             Vector2d relPos = bodyfold.posList[j] - bodyfold.posList[i];
             Vector2d relVel = bodyfold.velList[j] - bodyfold.velList[i];
@@ -325,7 +322,6 @@ public:
         if (!result && flag)
             return false;
         return true;
-
     }
 
 #endif
@@ -357,7 +353,7 @@ public:
 
     Solver(int givenT, long double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}
 #if VISUALIZE
-    , visuals{800, 800, getSystemRadius()}
+    , visuals{800, 800, (double)getSystemRadius()}
 #endif
 #if COMPARE_QUANTS
     , initialQuants{quantities()}
@@ -463,7 +459,7 @@ public:
 
         long double initialEnergy = getEnergy();
 
-        bool hEscape = false, hDiss = false;
+        bool hEscapeRegret = false, hDissRegret = false;
 
         for (long pass = 0; pass*dt < T; pass++) {
 
@@ -473,8 +469,13 @@ public:
                     return 0;
                 if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax)
                     return 1;
-                if (!heuristicLocker(heuristicEscape(), hEscape) || !heuristicLocker(heuristicDissolution(), hDiss))
-                    return 2;
+
+                if (pass*dt > 4000) {
+                    hEscapeRegret = hEscapeRegret || !heuristicLocker(heuristicEscape(), ISI_hEscape);
+                    hDissRegret = hDissRegret || !heuristicLocker(heuristicDissolution(), ISI_hDiss);
+                    if (hEscapeRegret && hDissRegret)
+                        return 2;
+                }
             }
 
             doSymplecticIntegrator();
@@ -494,37 +495,6 @@ public:
                 if (result != get<0>(statuses.back())) {
                     statuses.emplace_back(result, time + pass * dt);
      */
-
-    void run_ISI(long double divMax) {
-
-        long double initialEnergy = getEnergy();
-
-        bool hEscape = false, hDiss = false;
-
-        statuses.emplace_back(haltCheck(), 0);
-
-        for (long pass = 0; pass*dt < T; pass++) {
-
-            if (pass%haltCheckPerPasses == 0) {
-
-                ISI_times.emplace_back(pass*dt);
-                ISI_positions.emplace_back(as_tuple(bodyfold.posList));
-                ISI_velocities.emplace_back(as_tuple(bodyfold.velList));
-
-                tuple<int, int> result = haltCheck();
-                if (result != get<0>(statuses.back()))
-                    statuses.emplace_back(haltCheck(), pass*dt);;
-                if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax)
-                    throw std::invalid_argument("NOT EA AT " + to_string(pass*dt));
-                if (!heuristicLocker(heuristicEscape(), hEscape, ISI_hEscapeTime, pass*dt) || !heuristicLocker(heuristicDissolution(), hDiss, ISI_hDissTime, pass*dt))
-                    return throw std::invalid_argument("HEURISTICALLY BAD AT " + to_string(pass*dt));;
-            }
-
-            doSymplecticIntegrator();
-        }
-
-        time = T;
-    }
 
 
 
@@ -573,7 +543,7 @@ public:
 
         long double maximum = 0;
         for (int i = 0; i < NUM; i++)
-            maximum = max(maximum, bodyfold.posList[i].norm());
+            maximum = max(maximum, (long double)bodyfold.posList[i].norm());
 
         return maximum;
     }

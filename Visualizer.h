@@ -105,10 +105,9 @@ public:
         }
 
         wCount--;
-        if (wCount > 0) {
+        if (true) {
             for (int i = 0; i < NUM; i++)
                 paths[i].emplace_back(posList[i]);
-            return;
         }
 
         window.clear();
