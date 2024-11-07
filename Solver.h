@@ -302,19 +302,19 @@ public:
             //usleep(1);
 
 #if HALTCHECK
-                if (pass%haltCheckPerPasses == 0) {
-                    tuple<int, int> result = haltCheck();
-                    cout << get<0>(result) << " " << get<1>(result) << endl;
-                    cout << pass*dt << endl;
-                }
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                cout << get<0>(result) << " " << get<1>(result) << endl;
+                cout << pass*dt << endl;
+            }
 #endif
 
 #if VISUALIZE
-                if (pass%framePerPasses == 0) {
-                    visuals.visualizationLoop(getDrawInfo());
-                    if (!isWindowOpen())
-                        break;
-                }
+            if (pass%framePerPasses == 0) {
+                visuals.visualizationLoop(getDrawInfo());
+                if (!isWindowOpen())
+                    break;
+            }
 #endif
 #if COMPARE_QUANTS
             if (pass%comparePerPasses == 0) {
@@ -336,7 +336,7 @@ public:
     };
 
 #if COMPARE_QUANTS
-    void compare(int pass) {
+    void compare(long pass) {
         cout << "----------" << endl;
         cout << "TIME: " << pass*dt << endl;
         Quantities::compare(quantities(), initialQuants);
