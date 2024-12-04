@@ -35,7 +35,7 @@ public:
     static constexpr int GNFOC_StatusesAmount = GNFOC_Statuses.size();
     vector<tuple<tuple<int, int>, long double>> statuses;
 
-    bool ISI_hEscape = false, ISI_hDiss = false;
+    bool ISI_hEscape = true, ISI_hDiss = true;
 
 
 
@@ -459,8 +459,6 @@ public:
 
         long double initialEnergy = getEnergy();
 
-        bool hEscapeRegret = false, hDissRegret = false;
-
         for (long pass = 0; pass*dt < T; pass++) {
 
             if (pass%haltCheckPerPasses == 0) {
@@ -470,10 +468,12 @@ public:
                 if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax)
                     return 1;
 
-                if (pass*dt > 4000) {
-                    hEscapeRegret = hEscapeRegret || !heuristicLocker(heuristicEscape(), ISI_hEscape);
-                    hDissRegret = hDissRegret || !heuristicLocker(heuristicDissolution(), ISI_hDiss);
-                    if (hEscapeRegret && hDissRegret)
+                if (pass*dt > 10000) {
+
+                    ISI_hEscape = ISI_hEscape && heuristicEscape();
+                    ISI_hDiss = ISI_hDiss && heuristicDissolution();
+
+                    if (!ISI_hEscape && !ISI_hDiss)
                         return 2;
                 }
             }
