@@ -294,6 +294,55 @@ public:
 #endif
     }
 
+    bool heuristicDissolution() {
+        for (nat i = 0; i < NUM; i++) {
+
+            int j = (i + 1) % NUM;
+
+            Vector2d relPos = bodyfold.posList[j] - bodyfold.posList[i];
+            Vector2d relVel = bodyfold.velList[j] - bodyfold.velList[i];
+
+            if (relPos.dot(relVel) <= 0)
+                return false;
+        }
+
+        return true;
+    }
+
+    bool heuristicEscape() {
+
+        vector<long double> distSquares;
+
+        nat j;
+        for (nat i = 0; i < NUM; i++) {
+            j = (i + 1) % NUM;
+            distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
+        }
+
+        int i = -1;
+
+        if (distSquares.at(0) > ratioSquare * distSquares.at(1))
+            i = 0;
+        if (ratioSquare * distSquares.at(0) < distSquares.at(1))
+            i = 2;
+        if (ratioSquare * distSquares.at(2) < distSquares.at(1))
+            i = 1;
+
+        if (i == -1)
+            return false;
+
+        int uno = (i + 1) % NUM;
+        int dos = (i + 2) % NUM;
+
+        Vector2d binaryCOMVel = bodyfold.velList[uno]
+                        + massRatios[i] * (bodyfold.velList[dos] - bodyfold.velList[uno]);
+        Vector2d binaryCOM = bodyfold.posList[uno]
+                    + massRatios[i] * (bodyfold.posList[dos] - bodyfold.posList[uno]);
+
+        return ((binaryCOMVel - bodyfold.velList[i]).dot(binaryCOM - bodyfold.posList[i]) > 0);
+
+    }
+
     void run() {
         
         for (long pass = 0; pass*dt < T; pass++) {
@@ -305,6 +354,8 @@ public:
             if (pass%haltCheckPerPasses == 0) {
                 tuple<int, int> result = haltCheck();
                 cout << get<0>(result) << " " << get<1>(result) << endl;
+                cout << heuristicEscape() << endl;
+                cout << heuristicDissolution() << endl;
                 cout << pass*dt << endl;
             }
 #endif
