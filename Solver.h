@@ -9,8 +9,8 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE false
-#define COMPARE_QUANTS false
+#define VISUALIZE true
+#define COMPARE_QUANTS true
 #define HALTCHECK true
 
 #if VISUALIZE
@@ -34,7 +34,7 @@ private:
 
 
 #if HALTCHECK
-    static const int haltCheckPerPasses = 2000000;
+    static const int haltCheckPerPasses = 20000;
     static const int ratio = 10;
     static const int ratioSquare = ratio*ratio;
 #endif
