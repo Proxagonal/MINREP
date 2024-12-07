@@ -12,7 +12,8 @@ add_executable(MINREP
         #HaltCheckTimeTester.cpp
         #EscapeAndNewDissolutionTester.cpp
         #TryingToBreakChecks.cpp
-        GetFalseNegativesOfChecks.cpp
+        #GetFalseNegativesOfChecks.cpp
+        ExamineEscape1Diss0FalseNegatives.cpp
         #mainTester.cpp
         #secondaryTester.cpp
 )

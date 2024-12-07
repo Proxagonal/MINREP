@@ -32,12 +32,11 @@ class Solver {
 public:
 
     static const std::array<std::string, 3> GNFOC_Statuses;
+    static const int GFNOC_HideAndSeekTime;
     static constexpr int GNFOC_StatusesAmount = GNFOC_Statuses.size();
     vector<tuple<tuple<int, int>, long double>> statuses;
 
     bool ISI_hEscape = true, ISI_hDiss = true;
-    int GFNOC_HideAndSeekTime = 10000;
-
 
 
     const int T;
@@ -308,7 +307,71 @@ public:
 
     }
 
+
+
+    bool confirmEscapeHeuristicWrongInThisWay() {
+
+        vector<long double> distSquares;
+
+        nat j;
+        for (nat i = 0; i < NUM; i++) {
+            j = (i + 1) % NUM;
+            distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
+        }
+
+        int i = -1;
+
+        if (distSquares.at(0) > ratioSquare * distSquares.at(1))
+            i = 0;
+        if (ratioSquare * distSquares.at(0) < distSquares.at(1))
+            i = 2;
+        if (ratioSquare * distSquares.at(2) < distSquares.at(1))
+            i = 1;
+
+        if (i == -1)
+            return false;
+
+        int uno = (i + 1) % NUM;
+        int dos = (i + 2) % NUM;
+
+        long double mu = bodyfold.massList[uno];
+        long double md = bodyfold.massList[dos];
+        long double mu_ud = G*(mu + md);
+        Vector2d velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
+
+
+        long double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / sqrt(distSquares[uno]);
+
+        // This means the binary isn't bound
+        if (epsilon_ud >= 0)
+            return false;
+
+        long double ellipseMajor_ud = -mu_ud/epsilon_ud;
+
+        // This means the approximation will not be good at apoapsis
+        // Multiply by eps^2 for no division
+        if (ratioSquare * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
+            return false;
+
+        Vector2d binaryCOM = bodyfold.posList[uno]
+                            + massRatios[i] * (bodyfold.posList[dos] - bodyfold.posList[uno]);
+
+        Vector2d binaryCOMVel = bodyfold.velList[uno]
+                                + massRatios[i] * velDiff_ud;
+
+        Vector2d deltaPosWholeSystem = bodyfold.posList[i] - binaryCOM;
+        Vector2d deltaVelWholeSystem = bodyfold.velList[i] - binaryCOMVel;
+        long double muWholeSystem = mu_ud + G*bodyfold.massList[i];
+
+
+        long double epsilonWholeSystem = deltaVelWholeSystem.squaredNorm()/2
+                                    - muWholeSystem / deltaPosWholeSystem.norm();
+
+        return epsilonWholeSystem < 0;
+    }
 #endif
+
+
 
     //calculates potential energy
     long double calcPotential() {
@@ -373,8 +436,6 @@ public:
                 if (!isWindowOpen())
                     break;
             }
-            //if (pass%10 == 0 && 1.1*pass*dt > T)
-            //    usleep(0);
 #endif
 #if COMPARE_QUANTS
             if (pass%comparePerPasses == 0) {
@@ -384,6 +445,13 @@ public:
         }
     }
 
+    void run_dry() {
+        for (long pass = 0; pass*dt < T; pass++) {
+            doSymplecticIntegrator();
+        }
+    }
+
+#if HALTCHECK
     bool run_EANDT_TCYCLE(long double initialEnergy, long double divMax) {
 
         int timeNeeded = T;
@@ -475,16 +543,7 @@ public:
         return -1;
     }
 
-    /*
-    *         statuses.emplace_back(haltCheck(), 0);
-
-        for (pass = 0; pass*dt < timeNeeded; pass++) {
-
-            if (pass%haltCheckPerPasses == 0) {
-                tuple<int, int> result = haltCheck();
-                if (result != get<0>(statuses.back())) {
-                    statuses.emplace_back(result, time + pass * dt);
-     */
+#endif
 
 
 
@@ -587,6 +646,7 @@ public:
 };
 
 inline const std::array<std::string, 3> Solver::GNFOC_Statuses = {"Got Prediction", "Energy Inaccurate", "Regretted Heuristic"};
+inline const int Solver::GFNOC_HideAndSeekTime = 10000;
 
 
 #endif
