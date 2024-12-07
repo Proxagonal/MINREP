@@ -36,6 +36,7 @@ public:
     vector<tuple<tuple<int, int>, long double>> statuses;
 
     bool ISI_hEscape = true, ISI_hDiss = true;
+    int GFNOC_HideAndSeekTime = 10000;
 
 
 
@@ -101,6 +102,9 @@ public:
 #if HALTCHECK
 
     tuple<int, int> haltCheck() {
+
+        //if ((int)(bodyfold.massList[0]*pow(10, 8)) % 10 == 5)
+        //    return {-1, -1};
 
         vector<long double> distSquares;
 
@@ -304,26 +308,6 @@ public:
 
     }
 
-    static bool heuristicLocker(const bool result, bool &flag, long double &tMaybe, const long double current) {
-
-        if (result && !flag) {
-            flag = true;
-            tMaybe = current;
-        }
-        if (!result && flag)
-            return false;
-        return true;
-    }
-
-    static bool heuristicLocker(const bool result, bool &flag) {
-
-        if (result && !flag)
-            flag = true;
-        if (!result && flag)
-            return false;
-        return true;
-    }
-
 #endif
 
     //calculates potential energy
@@ -463,18 +447,24 @@ public:
 
             if (pass%haltCheckPerPasses == 0) {
                 tuple<int, int> result = haltCheck();
-                if (result != tuple(-1, -1))
+                if (result != tuple(-1, -1)) {
+                    time = pass*dt;
                     return 0;
-                if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax)
+                }
+                if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax) {
+                    time = pass*dt;
                     return 1;
+                }
 
-                if (pass*dt > 10000) {
+                if (pass*dt > GFNOC_HideAndSeekTime) {
 
                     ISI_hEscape = ISI_hEscape && heuristicEscape();
                     ISI_hDiss = ISI_hDiss && heuristicDissolution();
 
-                    if (!ISI_hEscape && !ISI_hDiss)
+                    if (!ISI_hEscape && !ISI_hDiss) {
+                        time = pass*dt;
                         return 2;
+                    }
                 }
             }
 

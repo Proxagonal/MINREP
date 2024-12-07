@@ -8,7 +8,7 @@
 #include <semaphore.h>
 #include <sys/mman.h>
 
-#define SAMPLE 100000
+#define SAMPLE 600000
 #define COMPS 12
 #define PATHSTART "/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
 
@@ -104,6 +104,12 @@ int main() {
         auto* counter = static_cast<InterProcessCounter*>(mmap(nullptr, sizeof(InterProcessCounter), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
         counter->counter = 0;
 
+        // Initialize the mutex with the attribute to allow process sharing
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);  // Set the mutex as process-shared
+        pthread_mutex_init(&counter->mutex, &attr);
+
         statusCounters.emplace_back(counter);
     }
 
@@ -130,39 +136,33 @@ int main() {
     ofstream goodSystemResults(path + ID + string("_EndResults.txt"));
 
     int iGood = 0;
-    bool isLastSuccess = false;
-    int finishStatNum = -1;
 
-    int T = 40000;
+    int T = 4000000;
 
     int POW = -3;
 
     while (true) {
 
-        int left, succ;
+        int left;
+        int finishStatNum;
+        bool isSuccess;
+
 
         pthread_mutex_lock(&systemsLeft->mutex);
+
         left = systemsLeft->counter;
-        //if (left > 0)
-        //    systemsLeft->counter--;
-        if (isLastSuccess)
-            systemsLeft->counter2++;
-        succ = systemsLeft->counter2;
-        pthread_mutex_unlock(&systemsLeft->mutex);
 
-        if (finishStatNum != -1) {
-            pthread_mutex_lock(&statusCounters[finishStatNum]->mutex);
-            statusCounters[finishStatNum]->counter++;
-            pthread_mutex_unlock(&statusCounters[finishStatNum]->mutex);
-        }
-
-        if (left <= 0)
+        if (left <= 0) {
+            pthread_mutex_unlock(&systemsLeft->mutex);
             break;
+        }
+        systemsLeft->counter--;
 
         if (left % 100 == 0) {
-            cout << left << ", " << succ << endl;
+            cout << left << ", " << systemsLeft->counter2 << endl;
             int count;
             for (int i = 0; i < Solver::GNFOC_StatusesAmount; i++) {
+
                 pthread_mutex_lock(&statusCounters[i]->mutex);
                 count = statusCounters[i]->counter;
                 pthread_mutex_unlock(&statusCounters[i]->mutex);
@@ -171,7 +171,10 @@ int main() {
             }
         }
 
+        pthread_mutex_unlock(&systemsLeft->mutex);
 
+
+        //cout << ID << " get next" << endl;
         initialData rando = Bodyfold::generateRandomCOM();
 
         long double energyBefore = Solver::calcQuantities(rando).E();
@@ -184,7 +187,7 @@ int main() {
         auto end = now();
 
         // If good energy conservation
-        if (isLastSuccess = (finishStatNum == -1)) {
+        if (isSuccess = (finishStatNum == -1)) {
 
             goodSystemResults << "SYSTEM " << iGood++ << ": " << endl;
             goodSystemResults << Bodyfold::toString(rando);
@@ -201,10 +204,16 @@ int main() {
             goodSystemResults << "DISS HEURISTIC: " << solver.ISI_hDiss << endl;
         }
 
-        pthread_mutex_lock(&systemsLeft->mutex);
-        if (left > 0)
-            systemsLeft->counter--;
-        pthread_mutex_unlock(&systemsLeft->mutex);
+        if (isSuccess) {
+
+            pthread_mutex_lock(&systemsLeft->mutex);
+            systemsLeft->counter2++;
+            pthread_mutex_unlock(&systemsLeft->mutex);
+        }
+
+        pthread_mutex_lock(&statusCounters[finishStatNum]->mutex);
+        statusCounters[finishStatNum]->counter++;
+        pthread_mutex_unlock(&statusCounters[finishStatNum]->mutex);
     }
 
     goodSystemResults.flush();
@@ -217,6 +226,13 @@ int main() {
     for (int i = 0; i < COMPS - 1; i++) {
         wait(&status);
     }
+
+    cout << "\nLast Man Standing Says:" << endl;
+
+    cout << systemsLeft->counter << ", " << systemsLeft->counter2 << endl;
+
+    for (int i = 0; i < Solver::GNFOC_StatusesAmount; i++)
+        cout << Solver::GNFOC_Statuses[i] << ": " << statusCounters[i]->counter << endl;
 
     return 0;
 
