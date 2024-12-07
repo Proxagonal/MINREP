@@ -5,12 +5,13 @@
 #include "Bodyfold.h"
 #include "Quantities.h"
 #include "Visualizer.h"
+#include <iomanip>
 
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE true
-#define COMPARE_QUANTS true
+#define VISUALIZE false
+#define COMPARE_QUANTS false
 #define HALTCHECK true
 
 #if VISUALIZE
@@ -305,7 +306,7 @@ public:
             if (pass%haltCheckPerPasses == 0) {
                 tuple<int, int> result = haltCheck();
                 cout << get<0>(result) << " " << get<1>(result) << endl;
-                //cout << pass*dt << endl;
+                cout << pass*dt << endl;
             }
 #endif
 
