@@ -36,11 +36,17 @@ private:
 
 #if HALTCHECK
     static const int haltCheckPerPasses = 20000;
-    static const int ratio = 10;
-    static const int ratioSquare = ratio*ratio;
+    static const int escapeDistanceRatio = 10;
+    static const int edrSquared = escapeDistanceRatio*escapeDistanceRatio;
 #endif
 
     Bodyfold bodyfold;
+
+    const double distanceToLengthPerDt_MAX = 2000;
+    const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
+    const double sowingDistanceRatio = 100;
+    const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
+
     vector<double> massRatios;
 
 #if VISUALIZE
@@ -91,6 +97,67 @@ private:
         return G * diff / (diff.norm() * diff.squaredNorm());
     }
 
+        double BinaryApproximationRun(nat i) {
+
+        nat uno = (i+1) % NUM;
+        nat dos = (i+2) % NUM;
+
+        Vector2d posrel = bodyfold.posList[dos] - bodyfold.posList[uno];
+        Vector2d velrel = bodyfold.velList[dos] - bodyfold.velList[uno];
+
+        double r_rel = posrel.norm();
+        double v2_rel = velrel.squaredNorm();
+        double vdotr = velrel.dot(posrel);
+
+        double mu = G*(bodyfold.massList[uno] + bodyfold.massList[dos]);
+        double mu_inv = 1/mu;
+
+        double epsilon = v2_rel/2 - mu/r_rel;
+
+        Vector2d e = mu_inv * ((epsilon + v2_rel/2)*posrel - vdotr * velrel);
+
+        //int SIGN = 1 - 2*signbit(cross(e, posrel)); // conf(cross)
+
+        double EHycomp = -sqrt(2*abs(epsilon)) * abs(vdotr); // not sure about minus sign at all
+        double EHxcomp = v2_rel*r_rel - mu;
+
+        double T;
+        if (epsilon <= 0) {
+            double E = atan2(EHycomp, EHxcomp);
+            E = 2*M_PI*(E < 0) + E;
+            double sinE = EHycomp/sqrt(EHycomp*EHycomp + EHxcomp*EHxcomp); //ok w.r.t E
+            double M = E - e.norm()*sinE; // ok w.r.t. E
+            cout << "E: " << E << " | sin E: " << sinE << " | M: " << M << endl;
+            T = 2 * mu * sqrt(-1/pow(2*epsilon, 3)) * (2*M_PI - M);
+            cout << "factor " << mu * sqrt(-1/pow(2*epsilon, 3)) << " m2pi " << 2*M_PI << endl;
+        } else {
+            double H = atanh(EHycomp/EHxcomp);
+            double sinhH = EHycomp/sqrt(EHxcomp*EHxcomp - EHycomp*EHycomp);
+            double M = e.norm()*sinhH - H;
+            T = 2 * mu * sqrt(1/(pow(2*epsilon, 3))) * abs(M);
+        }
+
+        Vector2d ehat = e.normalized();
+        Vector2d ohat(-ehat.y(), ehat.x());
+
+        Vector2d pos2New = posrel - 2*posrel.dot(ohat)*ohat;
+        Vector2d vel2New = velrel - 2*velrel.dot(ehat)*ehat;
+
+        //----- PURE APPROX:
+        //YOU NEED TO CALCULATE NEW COM, COMvel ACCORDING TO 2BP with body i, and also correct body i
+
+        double M = bodyfold.massList[uno] + bodyfold.massList[dos];
+        Vector2d COM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) / M;
+        Vector2d COMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) / M;
+
+        bodyfold.posList[uno] = COM + COMvel*T - bodyfold.massList[dos]/M * pos2New;
+        bodyfold.velList[uno] = COMvel - bodyfold.massList[dos]/M * vel2New;
+        bodyfold.posList[dos] = COM + COMvel*T + bodyfold.massList[uno]/M * pos2New;
+        bodyfold.velList[dos] = COMvel + bodyfold.massList[uno]/M * vel2New;
+
+        return T;
+    }
+
 #if HALTCHECK
 
     tuple<int, int> haltCheck() {
@@ -124,11 +191,11 @@ private:
 
     tuple<nat, nat> escapeCheck(const vector<double> &distSquares) {
 
-        if (distSquares.at(0) > ratioSquare * distSquares.at(1))
+        if (distSquares.at(0) > edrSquared * distSquares.at(1))
             return {0, confirmEscape(distSquares, 0)};
-        if (ratioSquare * distSquares.at(0) < distSquares.at(1))
+        if (edrSquared * distSquares.at(0) < distSquares.at(1))
             return {2, confirmEscape(distSquares, 2)};
-        if (ratioSquare * distSquares.at(2) < distSquares.at(1))
+        if (edrSquared * distSquares.at(2) < distSquares.at(1))
             return {1, confirmEscape(distSquares, 1)};
 
         return {-1, -1};
@@ -157,7 +224,7 @@ private:
 
         // This means the approximation will not be good at apoapsis
         // Multiply by eps^2 for no division
-        if (ratioSquare * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
+        if (edrSquared * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
             return 0;
 
         Vector2d binaryCOM = bodyfold.posList[uno]
@@ -269,6 +336,9 @@ private:
     bool isWindowOpen() {
         return visuals.isOpen();
     }
+    bool isSlower() {
+        return visuals.slowDown();
+    }
 #endif
 
 
@@ -300,7 +370,55 @@ public:
         for (long pass = 0; pass*dt < T; pass++) {
 
             doSymplecticIntegrator();
-            //usleep(1);
+
+#if HALTCHECK
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                cout << get<0>(result) << " " << get<1>(result) << endl;
+                cout << pass*dt << endl;
+            }
+#endif
+
+#if VISUALIZE
+            if (pass%framePerPasses == 0) {
+                visuals.visualizationLoop(getDrawInfo());
+                if (!isWindowOpen())
+                    break;
+            }
+#endif
+#if COMPARE_QUANTS
+            if (pass%comparePerPasses == 0) {
+                compare(pass);
+            }
+#endif
+        }
+    }
+
+    void run_vdt() {
+
+        for (long pass = 0; pass*dt < T; pass++) {
+
+            for (int i = 0; i < NUM; i++) {
+
+                int j = (i + 1) % NUM;
+
+                Vector2d relpos = bodyfold.posList[j] - bodyfold.posList[i];
+                Vector2d relvel = bodyfold.velList[j] - bodyfold.velList[i];
+
+                // if both sim-bad condition AND getting worse AND body ratio allows it
+                if (relpos.squaredNorm() >= RsquaredConst * relvel.squaredNorm()
+                    && relpos.dot(relvel) <= 0)
+
+                    if (sdr) {
+                        cout << "---------------------------------" << endl;
+                        cout << "---------------CUT---------------" << endl;
+                        cout << "---------------------------------" << endl;
+                        BinaryApproximationRun((i+2)%NUM);
+                        break;
+                    }
+            }
+
+            doSymplecticIntegrator();
 
 #if HALTCHECK
             if (pass%haltCheckPerPasses == 0) {
