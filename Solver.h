@@ -10,7 +10,7 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE false
+#define VISUALIZE true
 #define COMPARE_QUANTS false
 #define HALTCHECK true
 
