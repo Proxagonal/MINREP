@@ -48,6 +48,12 @@ public:
     static const int ratioSquare = ratio*ratio;
 
     Bodyfold bodyfold;
+
+    const double distanceToLengthPerDt_MAX = 250;
+    const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
+    const double sowingDistanceRatio = 0; //100?
+    const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
+
     vector<long double> massRatios;
 
 #if VISUALIZE
@@ -389,6 +395,124 @@ public:
         return total;
     }
 
+    tuple<double, Vector2d> BinaryApproximationInfo(nat i) {
+
+        nat uno = (i+1) % NUM;
+        nat dos = (i+2) % NUM;
+
+        Vector2d posrel = bodyfold.posList[dos] - bodyfold.posList[uno];
+        Vector2d velrel = bodyfold.velList[dos] - bodyfold.velList[uno];
+
+        double r_rel = posrel.norm();
+        double v2_rel = velrel.squaredNorm();
+        double vdotr = velrel.dot(posrel);
+
+        double mu = G*(bodyfold.massList[uno] + bodyfold.massList[dos]);
+        double mu_inv = 1/mu;
+
+        double epsilon = v2_rel/2 - mu/r_rel;
+
+        Vector2d e = mu_inv * ((epsilon + v2_rel/2)*posrel - vdotr * velrel);
+
+        //int SIGN = 1 - 2*signbit(cross(e, posrel)); // conf(cross)
+
+        double EHycomp = -sqrt(2*abs(epsilon)) * abs(vdotr); // not sure about minus sign at all
+        double EHxcomp = v2_rel*r_rel - mu;
+
+        double T;
+        if (epsilon <= 0) {
+
+            double E = atan2(EHycomp, EHxcomp);
+            E = 2*M_PI*(E < 0) + E;
+
+            double sinE = EHycomp/sqrt(EHycomp*EHycomp + EHxcomp*EHxcomp); //ok w.r.t E
+            double M = E - e.norm()*sinE; // ok w.r.t. E
+
+            T = 2 * mu * sqrt(-1/pow(2*epsilon, 3)) * (2*M_PI - M);
+
+        } else {
+
+            double H = atanh(EHycomp/EHxcomp);
+            double sinhH = EHycomp/sqrt(EHxcomp*EHxcomp - EHycomp*EHycomp);
+
+            double M = e.norm()*sinhH - H;
+
+            T = 2 * mu * sqrt(1/(pow(2*epsilon, 3))) * abs(M);
+        }
+
+        Vector2d ehat = e.normalized();
+        Vector2d ohat(-ehat.y(), ehat.x());
+
+        return {T, ohat};
+    }
+
+    double BinaryApproximationRun(nat i) {
+
+        nat uno = (i+1) % NUM;
+        nat dos = (i+2) % NUM;
+
+        Vector2d posrel = bodyfold.posList[dos] - bodyfold.posList[uno];
+        Vector2d velrel = bodyfold.velList[dos] - bodyfold.velList[uno];
+
+        double r_rel = posrel.norm();
+        double v2_rel = velrel.squaredNorm();
+        double vdotr = velrel.dot(posrel);
+
+        double mu = G*(bodyfold.massList[uno] + bodyfold.massList[dos]);
+        double mu_inv = 1/mu;
+
+        double epsilon = v2_rel/2 - mu/r_rel;
+
+        Vector2d e = mu_inv * ((epsilon + v2_rel/2)*posrel - vdotr * velrel);
+
+        //int SIGN = 1 - 2*signbit(cross(e, posrel)); // conf(cross)
+
+        double EHycomp = -sqrt(2*abs(epsilon)) * abs(vdotr); // not sure about minus sign at all
+        double EHxcomp = v2_rel*r_rel - mu;
+
+        double T;
+        if (epsilon <= 0) {
+
+            double E = atan2(EHycomp, EHxcomp);
+            E = 2*M_PI*(E < 0) + E;
+
+            double sinE = EHycomp/sqrt(EHycomp*EHycomp + EHxcomp*EHxcomp); //ok w.r.t E
+            double M = E - e.norm()*sinE; // ok w.r.t. E
+
+            T = 2 * mu * sqrt(-1/pow(2*epsilon, 3)) * (2*M_PI - M);
+
+        } else {
+
+            double H = atanh(EHycomp/EHxcomp);
+            double sinhH = EHycomp/sqrt(EHxcomp*EHxcomp - EHycomp*EHycomp);
+
+            double M = e.norm()*sinhH - H;
+
+            T = 2 * mu * sqrt(1/(pow(2*epsilon, 3))) * abs(M);
+        }
+
+        Vector2d ehat = e.normalized();
+        Vector2d ohat(-ehat.y(), ehat.x());
+
+        Vector2d pos2New = posrel - 2*posrel.dot(ohat)*ohat;
+        Vector2d vel2New = velrel - 2*velrel.dot(ehat)*ehat;
+
+        //----- PURE APPROX:
+        //YOU NEED TO CALCULATE NEW COM, COMvel ACCORDING TO 2BP with body i, and also correct body i
+
+        double M = bodyfold.massList[uno] + bodyfold.massList[dos];
+        Vector2d COM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) / M;
+        Vector2d COMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) / M;
+
+        bodyfold.posList[uno] = COM + COMvel*T - bodyfold.massList[dos]/M * pos2New;
+        bodyfold.velList[uno] = COMvel - bodyfold.massList[dos]/M * vel2New;
+        bodyfold.posList[dos] = COM + COMvel*T + bodyfold.massList[uno]/M * pos2New;
+        bodyfold.velList[dos] = COMvel + bodyfold.massList[uno]/M * vel2New;
+
+        return T;
+    }
+
+
 #if VISUALIZE
     bool isWindowOpen() {
         return visuals.isOpen();
@@ -544,6 +668,64 @@ public:
     }
 
 #endif
+
+    void run_vdt_TBCTPOSA() {
+
+        Vector2d ohat, start;
+        double T;
+
+        for (long pass = 0; pass*dt < T; pass++) {
+
+            if ()
+
+            for (int i = 0; i < NUM; i++) {
+
+                if (i != 0) //FOR 2 BODY TESTS
+                    break;
+
+                int j = (i + 1) % NUM;
+
+                Vector2d relpos = bodyfold.posList[j] - bodyfold.posList[i];
+                Vector2d relvel = bodyfold.velList[j] - bodyfold.velList[i];
+
+                // if both sim-bad condition AND getting worse AND body ratio allows it
+                if (relvel.squaredNorm() >= RsquaredConst * relpos.squaredNorm()
+                    && relpos.dot(relvel) <= 0)
+
+                    if (sdrSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
+                        auto [T, ohat] = BinaryApproximationInfo((j+1)%NUM);
+
+
+
+                        break;
+                    }
+            }
+
+            doSymplecticIntegrator();
+
+#if HALTCHECK
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                cout << get<0>(result) << " " << get<1>(result) << endl;
+                cout << pass*dt << endl;
+            }
+#endif
+
+#if VISUALIZE
+            if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/10) == 0)) {
+                visuals.visualizationLoop(getDrawInfo());
+                if (!isWindowOpen())
+                    break;
+            }
+#endif
+#if COMPARE_QUANTS
+            if (pass%comparePerPasses == 0) {
+                compare(pass);
+            }
+#endif
+        }
+    }
+
 
 
 
