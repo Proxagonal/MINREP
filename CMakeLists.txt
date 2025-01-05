@@ -4,7 +4,7 @@ project(MINREP)
 set(CMAKE_CXX_STANDARD 23)
 
 add_executable(MINREP
-        main.cpp
+        #main.cpp
         Solver.h
         Visualizer.h
         Quantities.h
@@ -14,7 +14,7 @@ add_executable(MINREP
         #TryingToBreakChecks.cpp
         #GetFalseNegativesOfChecks.cpp
         #ExamineEscape1Diss0FalseNegatives.cpp
-        #TwoBodyCheckTimePositionOfSimulationSowing.cpp
+        TwoBodyCheckTimePositionOfSimulationSowing.cpp
         #mainTester.cpp
         #secondaryTester.cpp
 )

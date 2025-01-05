@@ -11,9 +11,9 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE true
+#define VISUALIZE false
 #define COMPARE_QUANTS false
-#define HALTCHECK true
+#define HALTCHECK false
 
 #if VISUALIZE
 #include <unistd.h>
@@ -49,7 +49,7 @@ public:
 
     Bodyfold bodyfold;
 
-    const double distanceToLengthPerDt_MAX = 400;
+    const double distanceToLengthPerDt_MAX = 10000;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
     const double sowingDistanceRatio = 0; //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
@@ -58,7 +58,7 @@ public:
 
 #if VISUALIZE
     Visualizer visuals;
-    const int framePerPasses = 5000;
+    const int framePerPasses = 1000;
 #endif
 #if COMPARE_QUANTS
     Quantities initialQuants;
@@ -395,7 +395,7 @@ public:
         return total;
     }
 
-    tuple<double, Vector2d, Vector2d> BinaryApproximationInfo(nat i) {
+    tuple<double, Vector2d, Vector2d, Vector2d, Vector2d, Vector2d, Vector2d> BinaryApproximationInfo(nat i) {
 
         nat uno = (i+1) % NUM;
         nat dos = (i+2) % NUM;
@@ -443,7 +443,22 @@ public:
         Vector2d ehat = e.normalized();
         Vector2d ohat(-ehat.y(), ehat.x());
 
-        return {T, ehat, ohat};
+        Vector2d pos2New = posrel - 2*posrel.dot(ohat)*ohat;
+        Vector2d vel2New = velrel - 2*velrel.dot(ehat)*ehat;
+
+        //----- PURE APPROX:
+        //YOU NEED TO CALCULATE NEW COM, COMvel ACCORDING TO 2BP with body i, and also correct body i
+
+        double M = bodyfold.massList[uno] + bodyfold.massList[dos];
+        Vector2d COM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) / M;
+        Vector2d COMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) / M;
+
+        Vector2d p1 = COM + COMvel*T - bodyfold.massList[dos]/M * pos2New;
+        Vector2d v1 = COMvel - bodyfold.massList[dos]/M * vel2New;
+        Vector2d p2 = COM + COMvel*T + bodyfold.massList[uno]/M * pos2New;
+        Vector2d v2 = COMvel + bodyfold.massList[uno]/M * vel2New;
+
+        return {T, ehat, ohat, p1, v1, p2, v2};
     }
 
     double BinaryApproximationRun(nat i) {
@@ -518,7 +533,7 @@ public:
         return visuals.isOpen();
     }
     bool isSlower() {
-        return visuals.doSlow();
+        return visuals.slowDown();
     }
 #endif
 
@@ -672,7 +687,11 @@ public:
 
 #endif
 
-    tuple<double, vector<tuple<Vector2d, double>>> run_vdt_TBCTPOSS(long double divMax) {
+    double cross(Vector2d a, Vector2d b) {
+        return a.x()*b.y() - a.y()*b.x();
+    }
+
+    tuple<tuple<double, Vector2d, Vector2d, Vector2d, Vector2d>, vector<tuple<double, double, Vector2d, Vector2d, Vector2d, Vector2d>>> run_vdt_TBCTPOSS(long double divMax) {
 
         long double initialEnergy = getEnergy();
 
@@ -680,17 +699,26 @@ public:
         int velSign = 0;
         double sowTime = -1;
         bool hasSkipped = false;
+        bool streak = true;
         int skipPass;
 
-        vector<tuple<Vector2d, double>> b1pos_time;
+        vector<tuple<double, double, Vector2d, Vector2d, Vector2d, Vector2d>> b1angle_time;
+        Vector2d p1, v1, p2, v2;
 
         for (long pass = 0; pass*dt < T; pass++) {
 
-            if (hasSkipped
-                && abs(abs((bodyfold.posList[1] - start).dot(ohat)) - (bodyfold.posList[1]-start).norm()) < 0.0000000001
-                && velSign*bodyfold.velList[1].dot(ehat) < 0)
-                cout << "passed" << endl;
-                //b1pos_time.emplace_back(bodyfold.posList[1] - start, (pass - skipPass)*dt);
+            //if (hasSkipped)
+            //    cout << abs(abs((bodyfold.posList[1] - start).dot(ohat)) - (bodyfold.posList[1]-start).norm()) << endl;
+            if (streak && hasSkipped
+                && abs(abs((bodyfold.posList[1] - start).dot(ohat)) - (bodyfold.posList[1]-start).norm()) < 0.0001
+                && velSign*bodyfold.velList[1].dot(ehat) < 0) {
+                b1angle_time.emplace_back(cross(ohat, bodyfold.posList[1] - start)/(bodyfold.posList[1] - start).norm(), (pass - skipPass)*dt,
+                    bodyfold.posList[0], bodyfold.velList[0], bodyfold.posList[1], bodyfold.velList[1]);
+                //cout << "otherside" << endl;
+            }
+            else if (!b1angle_time.empty())
+                streak = false;
+
 
             for (int i = 0; i < NUM*(!hasSkipped); i++) {
 
@@ -708,9 +736,11 @@ public:
 
                     if (sdrSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
                         cout << "SKIP" << endl;
-                        auto [sowTime, ehat, ohat] = BinaryApproximationInfo((j+1)%NUM);
+                        tie(sowTime, ehat, ohat, p1, v1, p2, v2) = BinaryApproximationInfo((j+1)%NUM);
+
                         velSign = bodyfold.velList[1].dot(ehat)/abs(bodyfold.velList[1].dot(ehat));
                         hasSkipped = true;
+                        streak = true;
                         start = bodyfold.posList[1];
                         skipPass = pass;
 
@@ -719,20 +749,20 @@ public:
             }
 
             if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax) {
-                return {-2, {}};
+                return {{-2,{0,0} ,{0,0}, {0,0}, {0,0}}, {}};
             }
 
             doSymplecticIntegrator();
 
 #if VISUALIZE
-            if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/10) == 0)) {
+            if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/500) == 0)) {
                 visuals.visualizationLoop(getDrawInfo());
                 if (!isWindowOpen())
                     break;
             }
 #endif
         }
-        return {sowTime, b1pos_time};
+        return {{sowTime, p1, v1, p2, v2}, b1angle_time};
     }
 
 
