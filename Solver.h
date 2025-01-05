@@ -11,7 +11,7 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE false
+#define VISUALIZE true
 #define COMPARE_QUANTS false
 #define HALTCHECK true
 
@@ -49,7 +49,7 @@ public:
 
     Bodyfold bodyfold;
 
-    const double distanceToLengthPerDt_MAX = 250;
+    const double distanceToLengthPerDt_MAX = 400;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
     const double sowingDistanceRatio = 0; //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
@@ -395,7 +395,7 @@ public:
         return total;
     }
 
-    tuple<double, Vector2d> BinaryApproximationInfo(nat i) {
+    tuple<double, Vector2d, Vector2d> BinaryApproximationInfo(nat i) {
 
         nat uno = (i+1) % NUM;
         nat dos = (i+2) % NUM;
@@ -443,7 +443,7 @@ public:
         Vector2d ehat = e.normalized();
         Vector2d ohat(-ehat.y(), ehat.x());
 
-        return {T, ohat};
+        return {T, ehat, ohat};
     }
 
     double BinaryApproximationRun(nat i) {
@@ -516,6 +516,9 @@ public:
 #if VISUALIZE
     bool isWindowOpen() {
         return visuals.isOpen();
+    }
+    bool isSlower() {
+        return visuals.doSlow();
     }
 #endif
 
@@ -669,16 +672,27 @@ public:
 
 #endif
 
-    void run_vdt_TBCTPOSA() {
+    tuple<double, vector<tuple<Vector2d, double>>> run_vdt_TBCTPOSS(long double divMax) {
 
-        Vector2d ohat, start;
-        double T;
+        long double initialEnergy = getEnergy();
+
+        Vector2d ehat, ohat, start;
+        int velSign = 0;
+        double sowTime = -1;
+        bool hasSkipped = false;
+        int skipPass;
+
+        vector<tuple<Vector2d, double>> b1pos_time;
 
         for (long pass = 0; pass*dt < T; pass++) {
 
-            if ()
+            if (hasSkipped
+                && abs(abs((bodyfold.posList[1] - start).dot(ohat)) - (bodyfold.posList[1]-start).norm()) < 0.0000000001
+                && velSign*bodyfold.velList[1].dot(ehat) < 0)
+                cout << "passed" << endl;
+                //b1pos_time.emplace_back(bodyfold.posList[1] - start, (pass - skipPass)*dt);
 
-            for (int i = 0; i < NUM; i++) {
+            for (int i = 0; i < NUM*(!hasSkipped); i++) {
 
                 if (i != 0) //FOR 2 BODY TESTS
                     break;
@@ -693,23 +707,22 @@ public:
                     && relpos.dot(relvel) <= 0)
 
                     if (sdrSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
-                        auto [T, ohat] = BinaryApproximationInfo((j+1)%NUM);
-
-
+                        cout << "SKIP" << endl;
+                        auto [sowTime, ehat, ohat] = BinaryApproximationInfo((j+1)%NUM);
+                        velSign = bodyfold.velList[1].dot(ehat)/abs(bodyfold.velList[1].dot(ehat));
+                        hasSkipped = true;
+                        start = bodyfold.posList[1];
+                        skipPass = pass;
 
                         break;
                     }
             }
 
-            doSymplecticIntegrator();
-
-#if HALTCHECK
-            if (pass%haltCheckPerPasses == 0) {
-                tuple<int, int> result = haltCheck();
-                cout << get<0>(result) << " " << get<1>(result) << endl;
-                cout << pass*dt << endl;
+            if (abs((getEnergy() - initialEnergy)/initialEnergy) > divMax) {
+                return {-2, {}};
             }
-#endif
+
+            doSymplecticIntegrator();
 
 #if VISUALIZE
             if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/10) == 0)) {
@@ -718,12 +731,8 @@ public:
                     break;
             }
 #endif
-#if COMPARE_QUANTS
-            if (pass%comparePerPasses == 0) {
-                compare(pass);
-            }
-#endif
         }
+        return {sowTime, b1pos_time};
     }
 
 

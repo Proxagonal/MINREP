@@ -16,15 +16,17 @@ std::chrono::steady_clock::time_point now() {
 
 int main() {
 
-    Solver solver(100000, pow(10, -6));
+    initialData init = Bodyfold::generateRandomCOM_no3();
+    Solver solver(100000, pow(10, -4), init);
 
     auto start = now();
 
-    solver.run();
+    auto [T, lst] = solver.run_vdt_TBCTPOSS(pow(10, -5));
+    cout << "stat " << T << endl;
 
     auto end = now();
 
-    solver.dumpSystemStateString();
+    //solver.dumpSystemStateString();
 
     printMils(start, end);
 

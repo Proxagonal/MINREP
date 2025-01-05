@@ -84,6 +84,9 @@ public:
     bool isOpen() {
         return window.isOpen();
     }
+    bool doSlow() {
+        return sf::Keyboard::isKeyPressed(sf::Keyboard::S);
+    }
 
     void visualizationLoop(const array<Vector2d, NUM> &posList) {
 

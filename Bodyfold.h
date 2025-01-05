@@ -24,7 +24,7 @@ private:
     constexpr static double massMin = 0.5;
     constexpr static double massMax = 2;
     constexpr static double systemRadius = 35;
-    constexpr static double velocityMax = 17;
+    constexpr static double velocityMax = 5;
 
     static Vector2d toCartesian(double rad, double theta) {
         return {rad*cos(theta), rad*sin(theta)};
@@ -124,6 +124,24 @@ public:
             pos = randomOnRadius(systemRadius);
             vel = randomOnRadius(velocityMax);
             mass = massMin + (massMax - massMin) * rand01();
+            list.emplace_back(mass, pos, vel);
+        }
+
+        return transformToCOMSystem(list);
+    }
+
+    static initialData generateRandomCOM_no3() {
+
+        initialData list;
+
+        Vector2d pos;
+        Vector2d vel;
+        double mass;
+
+        for (int i = 0; i < NUM; i++) {
+            pos = randomOnRadius(systemRadius);
+            vel = randomOnRadius(velocityMax);
+            mass = (i < 2)*(massMin + (massMax - massMin) * rand01());
             list.emplace_back(mass, pos, vel);
         }
 
