@@ -15,6 +15,7 @@ add_executable(MINREP
         #GetFalseNegativesOfChecks.cpp
         #ExamineEscape1Diss0FalseNegatives.cpp
         TwoBodyCheckTimePositionOfSimulationSowing.cpp
+        TestKEPLERImplementations.cpp
         #mainTester.cpp
         #secondaryTester.cpp
 )
