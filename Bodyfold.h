@@ -129,6 +129,24 @@ public:
         return transformToCOMSystem(list);
     }
 
+    static initialData generateRandomCOM_no3() {
+
+        initialData list;
+
+        Vector2d pos;
+        Vector2d vel;
+        double mass;
+
+        for (int i = 0; i < NUM; i++) {
+            pos = randomOnRadius(systemRadius);
+            vel = randomOnRadius(velocityMax);
+            mass = (i < 2)*(massMin + (massMax - massMin) * rand01());
+            list.emplace_back(mass, pos, vel);
+        }
+
+        return transformToCOMSystem(list);
+    }
+
     static initialData transformToCOMSystem(initialData &init) {
 
         initialData COMMED;

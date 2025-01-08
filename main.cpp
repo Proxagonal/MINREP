@@ -28,15 +28,16 @@ Body #2:
 Mass: 0.77953752828539402
 Position: -1.5267756807077184  3.3657182900134019
 Velocity: -1.3283863829886773  3.3764438161090835)";
-    initialData init = Bodyfold::stringToInitialData(str);
+    //initialData init = Bodyfold::stringToInitialData(str);
 
-    Solver solver(16500000, pow(10, -4), init); //000
+    //Solver solver(16500000, pow(10, -4), init); //000
 
-    //Solver solver(400000, pow(10, -3));
+    initialData init = Bodyfold::generateRandomCOM();
+    Solver solver(400000, pow(10, -4), init);
 
     auto start = now();
 
-    solver.run();
+    solver.run_vdt();
 
     auto end = now();
 

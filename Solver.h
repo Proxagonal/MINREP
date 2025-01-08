@@ -6,13 +6,15 @@
 #include "Quantities.h"
 #include "Visualizer.h"
 #include <iomanip>
+#include <gsl/gsl_roots.h>
+#include <gsl/gsl_errno.h>
 
 using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS false
-#define HALTCHECK true
+#define COMPARE_QUANTS true
+#define HALTCHECK false
 
 #if VISUALIZE
 #include <unistd.h>
@@ -23,6 +25,8 @@ static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
 
 static const double G = 4*M_PI*M_PI;
+static const double G_inv = 1/G;
+
 
 typedef uint_fast8_t nat;
 
@@ -44,7 +48,7 @@ private:
 
     const double distanceToLengthPerDt_MAX = 2000;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
-    const double sowingDistanceRatio = 100;
+    const double sowingDistanceRatio = 0; //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
 
     vector<double> massRatios;
@@ -57,6 +61,16 @@ private:
     Quantities initialQuants;
     const int comparePerPasses = 20000;
 #endif
+
+    inline static double cross(Vector2d &a, Vector2d &b) {
+        return a.x()*b.y() - a.y()*b.x();
+    }
+    inline static int sign(double x) {
+        return 1 - 2*signbit(x);
+    }
+    inline static int zeroone_negpos(bool b) {
+        return 2*b - 1;
+    }
 
     //returns initial conditions of system
     static initialData initialConditions() {
@@ -97,7 +111,11 @@ private:
         return G * diff / (diff.norm() * diff.squaredNorm());
     }
 
-        double BinaryApproximationRun(nat i) {
+    double KEPLER(double M, double e) {
+
+    }
+
+    tuple<double, Vector2d, Vector2d> innerBinarySpinOnZero(nat i) {
 
         nat uno = (i+1) % NUM;
         nat dos = (i+2) % NUM;
@@ -109,8 +127,10 @@ private:
         double v2_rel = velrel.squaredNorm();
         double vdotr = velrel.dot(posrel);
 
-        double mu = G*(bodyfold.massList[uno] + bodyfold.massList[dos]);
-        double mu_inv = 1/mu;
+        double M = bodyfold.massList[uno] + bodyfold.massList[dos];
+        double M_inv = 1/M;
+        double mu = G*M;
+        double mu_inv = M_inv * G_inv;
 
         double epsilon = v2_rel/2 - mu/r_rel;
 
@@ -123,17 +143,22 @@ private:
 
         double T;
         if (epsilon <= 0) {
+
             double E = atan2(EHycomp, EHxcomp);
             E = 2*M_PI*(E < 0) + E;
+
             double sinE = EHycomp/sqrt(EHycomp*EHycomp + EHxcomp*EHxcomp); //ok w.r.t E
             double M = E - e.norm()*sinE; // ok w.r.t. E
-            cout << "E: " << E << " | sin E: " << sinE << " | M: " << M << endl;
+
             T = 2 * mu * sqrt(-1/pow(2*epsilon, 3)) * (2*M_PI - M);
-            cout << "factor " << mu * sqrt(-1/pow(2*epsilon, 3)) << " m2pi " << 2*M_PI << endl;
+
         } else {
+
             double H = atanh(EHycomp/EHxcomp);
             double sinhH = EHycomp/sqrt(EHxcomp*EHxcomp - EHycomp*EHycomp);
+
             double M = e.norm()*sinhH - H;
+
             T = 2 * mu * sqrt(1/(pow(2*epsilon, 3))) * abs(M);
         }
 
@@ -146,14 +171,96 @@ private:
         //----- PURE APPROX:
         //YOU NEED TO CALCULATE NEW COM, COMvel ACCORDING TO 2BP with body i, and also correct body i
 
-        double M = bodyfold.massList[uno] + bodyfold.massList[dos];
         Vector2d COM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) / M;
         Vector2d COMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) / M;
 
-        bodyfold.posList[uno] = COM + COMvel*T - bodyfold.massList[dos]/M * pos2New;
-        bodyfold.velList[uno] = COMvel - bodyfold.massList[dos]/M * vel2New;
-        bodyfold.posList[dos] = COM + COMvel*T + bodyfold.massList[uno]/M * pos2New;
-        bodyfold.velList[dos] = COMvel + bodyfold.massList[uno]/M * vel2New;
+        bodyfold.posList[uno] = - bodyfold.massList[dos]*M_inv * pos2New;
+        bodyfold.velList[uno] = - bodyfold.massList[dos]*M_inv * vel2New;
+        bodyfold.posList[dos] = + bodyfold.massList[uno]*M_inv * pos2New;
+        bodyfold.velList[dos] = + bodyfold.massList[uno]*M_inv * vel2New;
+
+        return {T, COM, COMvel};
+    }
+
+    tuple<Vector2d, Vector2d> outerBinaryOnCOMForT(double T, Vector2d &innerCOM, Vector2d &innerCOMvel, nat i) {
+
+        nat uno = (i+1) % NUM;
+        nat dos = (i+2) % NUM;
+
+        Vector2d posrel = bodyfold.posList[i] - innerCOM;
+        Vector2d velrel = bodyfold.velList[i] - innerCOMvel;
+
+        double r_rel = posrel.norm();
+
+        double M = bodyfold.massList[0] + bodyfold.massList[1] + bodyfold.massList[2];
+        double M_inv = 1/M;
+
+        double mu = G*M;
+        double mu_inv = G_inv * M_inv;
+
+        double epsilon = velrel.squaredNorm()/2 - mu/r_rel;
+
+        Vector2d e = mu_inv * ((epsilon + velrel.squaredNorm()/2)*posrel - velrel.dot(posrel)*velrel);
+        double e_mag = e.norm();
+
+        double sqrt_one_m_e_squared = sqrt(1-e_mag*e_mag);
+        double A = sqrt_one_m_e_squared*cross(e, posrel) / (e_mag*e_mag*r_rel + e.dot(posrel));
+
+        double E0 = atan(A);
+        double sinE0 = A/sqrt(1+A*A);
+
+        double M0 = E0 - e_mag*sinE0;
+
+        double a = -mu/(2*epsilon);
+
+        double sqrt_a_div_mu = sqrt(a/mu);
+        double n = sqrt_a_div_mu / a;
+
+        double M_true = n*T + M0;
+
+        double E = KEPLER(M_true, e_mag);
+
+        double cosE = cos(E);
+        double cosv = (cosE - e_mag)/(1 - e_mag*cosE);
+        double sinv = zeroone_negpos(E <= M_PI)*sqrt(1-cosv*cosv);
+
+        double r = a*(1-e_mag*e_mag)/(1+e_mag*cosv);
+
+        double vfactor = 1/(sqrt_a_div_mu*sqrt_one_m_e_squared);
+        double vr = vfactor*e_mag*sinv;
+        double vtheta = vfactor*(1+e_mag*cosv);
+
+        return {{r*cosv, r*sinv}, {vr*cosv - vtheta*sinv, vr*sinv + vtheta*cosv}};
+
+    }
+
+    double binaryApproximationRun(nat i) {
+
+        nat uno = (i+1) % NUM;
+        nat dos = (i+2) % NUM;
+
+        double innerM = bodyfold.massList[uno] + bodyfold.massList[dos];
+        double M = innerM + bodyfold.massList[i];
+
+        Vector2d COM = (bodyfold.massList[0]*bodyfold.posList[0]
+                        + bodyfold.massList[1]*bodyfold.posList[1]
+                        + bodyfold.massList[2]*bodyfold.posList[2]) / M;
+        Vector2d COMvel = (bodyfold.massList[0]*bodyfold.velList[0]
+                        + bodyfold.massList[1]*bodyfold.velList[1]
+                        + bodyfold.massList[2]*bodyfold.velList[2]) / M;
+
+
+        auto [T, innerCOM, innerCOMvel] = innerBinarySpinOnZero(i);
+
+        auto [iNewPos, iNewVel] = outerBinaryOnCOMForT(T, innerCOM, innerCOMvel, i);
+
+        bodyfold.posList[i] = COM + innerM/M * iNewPos;
+        bodyfold.velList[i] = COMvel + innerM/M * iNewVel;
+
+        bodyfold.posList[uno] += COM - bodyfold.massList[i]/M * iNewPos;
+        bodyfold.velList[uno] += COMvel - bodyfold.massList[i]/M * iNewVel;
+        bodyfold.posList[dos] += COM - bodyfold.massList[i]/M * iNewPos;
+        bodyfold.velList[dos] += COMvel - bodyfold.massList[i]/M * iNewVel;
 
         return T;
     }
@@ -400,20 +507,24 @@ public:
 
             for (int i = 0; i < NUM; i++) {
 
+                if (i != 0) //FOR 2 BODY TESTS
+                    break;
+
                 int j = (i + 1) % NUM;
 
                 Vector2d relpos = bodyfold.posList[j] - bodyfold.posList[i];
                 Vector2d relvel = bodyfold.velList[j] - bodyfold.velList[i];
 
                 // if both sim-bad condition AND getting worse AND body ratio allows it
-                if (relpos.squaredNorm() >= RsquaredConst * relvel.squaredNorm()
+                if (relvel.squaredNorm() >= RsquaredConst * relpos.squaredNorm()
                     && relpos.dot(relvel) <= 0)
 
-                    if (sdr) {
+                    if (sdrSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
                         cout << "---------------------------------" << endl;
                         cout << "---------------CUT---------------" << endl;
                         cout << "---------------------------------" << endl;
-                        BinaryApproximationRun((i+2)%NUM);
+                        double T = BinaryApproximationRun((j+1)%NUM);
+                        cout << "Skip: " << T << endl;
                         break;
                     }
             }
@@ -429,7 +540,7 @@ public:
 #endif
 
 #if VISUALIZE
-            if (pass%framePerPasses == 0) {
+            if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/10) == 0)) {
                 visuals.visualizationLoop(getDrawInfo());
                 if (!isWindowOpen())
                     break;

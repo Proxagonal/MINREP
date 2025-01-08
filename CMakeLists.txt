@@ -29,7 +29,11 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 include_directories("include/eigen-3.4.0")
 
-#set(SFML_DIR "include/SFML-2.6.1/lib/cmake/SFML")
+
+find_package(GSL REQUIRED)
+include_directories(${GSL_INCLUDE_DIRS})
+target_link_libraries(MINREP GSL::gsl GSL::gslcblas)
+
 
 find_package(SFML COMPONENTS graphics window REQUIRED)
 
