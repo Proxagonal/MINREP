@@ -10,9 +10,9 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE true
+#define VISUALIZE false
 #define COMPARE_QUANTS false
-#define HALTCHECK true
+#define HALTCHECK false
 
 #if VISUALIZE
 #include <unistd.h>
