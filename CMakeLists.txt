@@ -5,16 +5,16 @@ set(CMAKE_CXX_STANDARD 23)
 
 add_executable(MINREP
         #main.cpp
-        Solver.h
-        Visualizer.h
-        Quantities.h
-        Bodyfold.h
+        ##Solver.h
+        ##Visualizer.h
+        ##Quantities.h
+        ##Bodyfold.h
         #HaltCheckTimeTester.cpp
         #EscapeAndNewDissolutionTester.cpp
         #TryingToBreakChecks.cpp
         #GetFalseNegativesOfChecks.cpp
         #ExamineEscape1Diss0FalseNegatives.cpp
-        TwoBodyCheckTimePositionOfSimulationSowing.cpp
+        #TwoBodyCheckTimePositionOfSimulationSowing.cpp
         TestKEPLERImplementations.cpp
         #mainTester.cpp
         #secondaryTester.cpp
@@ -35,6 +35,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 #error out and see flags
 #set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -HAHAHA")
 
+find_package(GSL REQUIRED)
+include_directories(${GSL_INCLUDE_DIRS})
 
 include_directories("include/eigen-3.4.0")
 
@@ -42,4 +44,4 @@ include_directories("include/eigen-3.4.0")
 
 find_package(SFML COMPONENTS graphics window REQUIRED)
 
-target_link_libraries(MINREP PUBLIC sfml-graphics sfml-window)
+target_link_libraries(MINREP GSL::gsl GSL::gslcblas sfml-graphics sfml-window)

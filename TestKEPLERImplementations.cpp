@@ -1,7 +1,10 @@
 #include <cmath>
 #include <gsl/gsl_roots.h>
-#include <stdio.h>
-#include <functional>
+#include <gsl/gsl_errno.h>
+#include <iostream>
+
+using std::cout;
+using std::endl;
 
 static const double threeCbrt2 = 3*std::cbrt(2);
 
@@ -34,10 +37,10 @@ double keplerInitial(double M, double e) {
             return hyperbolicTaylor(M, e);
         return 3.3/M + asinh(M/e);
     }
-
+    return -1;
 }
 
-void keplerEllipticalEvaluator(double E, void* M_e, double *y, double* dy) {
+void keplerEllipticalEvaluator_fdf(double E, void* M_e, double *y, double* dy) {
 
     double* M_e_double = (double*)M_e;
     double M = *M_e_double;
@@ -48,7 +51,7 @@ void keplerEllipticalEvaluator(double E, void* M_e, double *y, double* dy) {
     *dy = 1 - e*cosE;
 }
 
-void keplerHyperbolicEvaluator(double E, void* M_e, double *y, double* dy) {
+void keplerHyperbolicEvaluator_fdf(double E, void* M_e, double *y, double* dy) {
 
     double* M_e_double = (double*)M_e;
     double M = *M_e_double;
@@ -59,16 +62,96 @@ void keplerHyperbolicEvaluator(double E, void* M_e, double *y, double* dy) {
     *dy = 1 - e*coshE;
 }
 
+double keplerEllipticalEvaluator_f(double E, void* M_e) {
+
+    double* M_e_double = (double*)M_e;
+    double M = *M_e_double;
+    double e = *(M_e_double+1);
+
+    return E - e*sin(E) - M;
+}
+
+double keplerHyperbolicEvaluator_f(double E, void* M_e) {
+
+    double* M_e_double = (double*)M_e;
+    double M = *M_e_double;
+    double e = *(M_e_double+1);
+
+    return E + M - e*sinh(E);
+}
+
+double keplerEllipticalEvaluator_df(double E, void* M_e) {
+
+    double* M_e_double = (double*)M_e;
+    double e = *(M_e_double+1);
+
+    return 1 - e*cos(E);
+}
+
+double keplerHyperbolicEvaluator_df(double E, void* M_e) {
+
+    double* M_e_double = (double*)M_e;
+    double e = *(M_e_double+1);
+
+    return 1 - e*cosh(E);
+}
+
+double keplerEllipticalValue(double E, void* M_e) {
+
+    double* M_e_double = (double*)M_e;
+    double M = *M_e_double;
+    double e = *(M_e_double+1);
+
+    double cosE = cos(E);
+    return E - e*sqrt(1-cosE*cosE) * (2 * (E<=M_PI) - 1) - M;
+}
+
+double keplerHyperbolicValue(double E, void* M_e) {
+
+    double* M_e_double = (double*)M_e;
+    double M = *M_e_double;
+    double e = *(M_e_double+1);
+
+    double coshE = cosh(E);
+    return E + M - e*sqrt(coshE*coshE-1) * (2 * (E>=0) - 1);
+}
+
 double KEPLER(double M, double e) {
 
     double params[2] = {M, e};
 
     gsl_function_fdf fdf;
-    fdf.fdf = keplerEllipticalEvaluator;
-    fdf.params = (void*)params;
+    fdf.f = &keplerEllipticalEvaluator_f;
+    fdf.df = &keplerEllipticalEvaluator_df;
+    fdf.fdf = (e < 1 ? &keplerEllipticalEvaluator_fdf : &keplerHyperbolicEvaluator_fdf);
+    fdf.params = params;
 
-    gsl_root_fdfsolver *s = gsl_root_fdfsolver_alloc(gsl_root_fdfsolver_newton);
-    gsl_root_fdfsolver_set(s, &fdf, x0);
+
+    double (*value)(double, void*) = (e < 1 ? &keplerEllipticalValue : &keplerHyperbolicValue);
+
+    cout << "yo" << endl;
+
+    const gsl_root_fdfsolver_type * T = gsl_root_fdfsolver_newton;
+    gsl_root_fdfsolver * s = gsl_root_fdfsolver_alloc(T);
+    cout << "yo" << endl;
+
+    double init = keplerInitial(M, e);
+
+    //s->fdf = &fdf;
+    //s->root = init;
+//
+    //cout << "HEYO" << GSL_FN_FDF_EVAL_F (&fdf, init) << endl;
+//
+//
+    //cout << ((s->type->set) (s->state, s->fdf, &(s->root))) << endl;
+
+
+    cout << "DONE" << endl;
+
+    gsl_root_fdfsolver_set(s, &fdf, init);
+    cout << "yo" << endl;
+
+    double root;
 
     int status;
     size_t iter = 0;
@@ -76,7 +159,7 @@ double KEPLER(double M, double e) {
         iter++;
         status = gsl_root_fdfsolver_iterate(s);
         root = gsl_root_fdfsolver_root(s);
-        status = gsl_root_test_residual(func_f(root, NULL), 1e-7);
+        status = gsl_root_test_residual(value(root, params), 1e-7);
     } while (status == GSL_CONTINUE && iter < 100);
 
     printf("status = %s\n", gsl_strerror(status));
@@ -84,6 +167,7 @@ double KEPLER(double M, double e) {
 
     gsl_root_fdfsolver_free(s);
 
+    return root;
 }
 
 int main() {
@@ -91,6 +175,5 @@ int main() {
     double M = 0.5*M_PI;
     double e = 0.2;
 
-
-
+    cout << KEPLER(M, e) << endl;
 }
