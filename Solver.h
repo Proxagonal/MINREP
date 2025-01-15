@@ -18,6 +18,8 @@ using namespace Eigen;
 #include <unistd.h>
 #endif
 
+typedef Vector<double, 2*NUM> aData;
+
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
@@ -41,6 +43,10 @@ private:
 #endif
 
     Bodyfold bodyfold;
+    Map<aData> POS;
+    Map<aData> VEL;
+    Map<aData> ACC;
+
     vector<double> massRatios;
 
 #if VISUALIZE
@@ -62,10 +68,8 @@ private:
 
         for (nat p = 0; p < ORDER; p++) {
             updateAccelerations();
-            for (nat i = 0; i < NUM; i++) {
-                bodyfold.velList[i] += C[p] * dt * bodyfold.accList[i];
-                bodyfold.posList[i] += D[p] * dt * bodyfold.velList[i];
-            }
+            VEL = C[p] * dt * ACC;
+            POS = D[p] * dt * VEL;
         }
     }
 
@@ -73,8 +77,7 @@ private:
 
         Vector2d mutualVector;
 
-        for (Vector2d &acc : bodyfold.accList)
-            acc.setZero();
+        ACC.setZero();
 
         nat j;
         for (nat i = 0; i < NUM; i++) {
@@ -274,7 +277,10 @@ private:
 
 public:
 
-    Solver(int givenT, double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}
+    Solver(int givenT, double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt},
+    POS{reinterpret_cast<double*>(&bodyfold.posList)},
+    VEL{reinterpret_cast<double*>(&bodyfold.velList)},
+    ACC{reinterpret_cast<double*>(&bodyfold.accList)}
 #if VISUALIZE
     , visuals{800, 800, getSystemRadius()}
 #endif

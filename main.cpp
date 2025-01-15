@@ -30,7 +30,7 @@ Position: -1.5267756807077184  3.3657182900134019
 Velocity: -1.3283863829886773  3.3764438161090835)";
     initialData init = Bodyfold::stringToInitialData(str);
 
-    Solver solver(100000, pow(10, -4)); //000
+    Solver solver(5000, pow(10, -4)); //000
 
     //Solver solver(400000, pow(10, -3));
 
