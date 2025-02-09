@@ -9,6 +9,7 @@ add_executable(MINREP
         Visualizer.h
         Quantities.h
         Bodyfold.h
+        Kepler.h
 )
 
 #remove flag
@@ -28,11 +29,6 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 
 include_directories("include/eigen-3.4.0")
-
-
-find_package(GSL REQUIRED)
-include_directories(${GSL_INCLUDE_DIRS})
-target_link_libraries(MINREP GSL::gsl GSL::gslcblas)
 
 
 find_package(SFML COMPONENTS graphics window REQUIRED)
