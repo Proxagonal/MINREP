@@ -184,235 +184,128 @@ private:
     }
 
     tuple<Vector2d, Vector2d> outerBinaryOnCOMForT(double T, Vector2d &innerCOM, Vector2d &innerCOMvel, nat i) {
-        nat uno = (i+1) % NUM;
-        nat dos = (i+2) % NUM;
 
-        cout << (int)i << endl;
-
-        Vector2d posrel = bodyfold.posList[i] - innerCOM;
-        Vector2d velrel = bodyfold.velList[i] - innerCOMvel;
-
-        //return {posrel, {0,0}};
-
-        cout << "Inner COM: " << innerCOM.transpose() << endl;
-        cout << "i: " << bodyfold.posList[i].transpose() << endl;
-
-        cout << "pos, vel: " << posrel.transpose() << " | " << velrel.transpose() << endl;
-
-        double r_rel = posrel.norm();
-
-        //double M_reduced = bodyfold.massList[i]*(bodyfold.massList[uno] + bodyfold.massList[dos])/(bodyfold.massList[0] + bodyfold.massList[1] + bodyfold.massList[2]);
-        //double M_inv = 1/M_reduced;
         double M = bodyfold.massList[0] + bodyfold.massList[1] + bodyfold.massList[2];
         double M_inv = 1/M;
 
         double mu = G*M;
         double mu_inv = G_inv * M_inv;
 
-        double epsilon = velrel.squaredNorm()/2 - mu/r_rel;
-
-        if (epsilon > 0)
-            return outerBinaryOnCOMForTHYPER(T, innerCOM, innerCOMvel, i);
-
-
-        cout << "mu: " << mu << endl;
-        cout << "r, epsilon: " << r_rel << ", " << epsilon << endl;
-        cout << "r dot v: " << posrel.dot(velrel) << endl;
-
-        //Vector2d e = mu_inv * ((epsilon + velrel.squaredNorm()/2)*posrel - velrel.dot(posrel)*velrel);
-        Vector2d e = (velrel.squaredNorm()/mu - 1/r_rel)*posrel - velrel.dot(posrel)*velrel/mu;
-        double e_mag = e.norm();
-        cout << "e, e mag: " << e.transpose() << ", " << e_mag << endl;
-
-        double sqrt_one_m_e_squared = sqrt(1-e_mag*e_mag);
-
-        //TRY
-
-        double v0 = acos(e.dot(posrel)/(e_mag*r_rel));
-        if (posrel.dot(velrel) < 0)
-            v0 = 2*M_PI - v0;
-        cout << "true anomaly: " << v0 << endl;
-
-        double sinv0 = sin(v0);
-        double cosv0 = cos(v0);
-
-        double omega = atan2(e.y(), e.x());
-        int SIGN = 1;
-        if (cross(posrel, velrel) < 0)
-            SIGN = -SIGN;
-
-        double a = -mu/(2*epsilon); // TEST TRIVIAL
-        double R = a*(1-e_mag*e_mag)/(1+e_mag*cosv0);
-
-        //return {{R*cos(v0-omega), R*sin(v0-omega)}, velrel};
-
-        cout << "e cross r: " << cross(e, posrel) << endl;
-
-        double E0top = SIGN * sqrt_one_m_e_squared * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel))) ;//zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel))
-        double E0bottom = (e_mag*e_mag*r_rel + e.dot(posrel));
-
-        double E0 = atan2(E0top, E0bottom);
-        cout << "E0 before: " << E0 << endl;
-        E0 = 2*M_PI*(E0 < 0) + E0;
-        //double sinE0 = E0top/sqrt(E0top*E0top + E0bottom*E0bottom);*
-
-        double sinE0 = sin(E0);
-        cout << "Ey, Ex, E0_after, sinE0: " <<  E0top << ", " << E0bottom << ", " << E0 << ", " << sinE0 << endl;
-
-
-        double M0 = E0 - e_mag*sinE0;
-        cout << "HEYO " << M0 << endl;
-
-        double n = sqrt(mu/pow(a,3));
-
-        double M_true = M0 + SIGN*n*T;
-        int toRange = M_true/(2*M_PI) - (M_true < 0);
-
-        double E = toRange * 2 * M_PI + Kepler::KEPLER(M_true - toRange * 2 * M_PI, e_mag);
-        cout << M_true << ", " << e_mag << ": " << E << endl;
-
-        double cosE = cos(E);
-        double cosv = (cosE - e_mag)/(1 - e_mag*cosE);
-        double sinv = sqrt_one_m_e_squared*sin(E)/(1-e_mag*cosE);
-        //double v = atan2(sinv, cosv) + omega;
-        //double sinv = zeroone_negpos(E <= M_PI)*sqrt(1-cosv*cosv); // cosv, sinv good given E, e
-
-        //double r = a*(1-e_mag*e_mag)/(1+e_mag*cosv);
-
-        double vfactor = SIGN/(sqrt(a/mu)*sqrt_one_m_e_squared);
-        double vr = vfactor*e_mag*sinv;
-        double vtheta = vfactor*(1+e_mag*cosv);
-
-        cout << "ITS ELLIPTING TIME" << endl;
-
-        Vector2d TRYPOS(a*cos(E)-a*e_mag, a*sqrt_one_m_e_squared*sin(E));
-        Vector2d TRYVEL(vr*cosv - vtheta*sinv, vr*sinv + vtheta*cosv);
-
-
-        return {rotate(TRYPOS, omega), rotate(TRYVEL, omega)};
-        //return {{r*cos(v), r*sin(v)}, {vr*cos(v) - vtheta*sin(v), vr*sin(v) + vtheta*cos(v)}};
-    }
-
-    tuple<Vector2d, Vector2d> outerBinaryOnCOMForTHYPER(double T, Vector2d &innerCOM, Vector2d &innerCOMvel, nat i) {
-        nat uno = (i+1) % NUM;
-        nat dos = (i+2) % NUM;
-
-        cout << (int)i << endl;
 
         Vector2d posrel = bodyfold.posList[i] - innerCOM;
         Vector2d velrel = bodyfold.velList[i] - innerCOMvel;
 
-        //return {posrel, {0,0}};
-
-        //cout << "Inner COM: " << innerCOM.transpose() << endl;
-        //cout << "i: " << bodyfold.posList[i].transpose() << endl;
-
-        //cout << "pos, vel: " << posrel.transpose() << " | " << velrel.transpose() << endl;
-
         double r_rel = posrel.norm();
+        int SIGN = zeroone_negpos(cross(posrel, velrel) >= 0); //BOUNDARY COND
 
-        //double M_reduced = bodyfold.massList[i]*(bodyfold.massList[uno] + bodyfold.massList[dos])/(bodyfold.massList[0] + bodyfold.massList[1] + bodyfold.massList[2]);
-        //double M_inv = 1/M_reduced;
-        double M = bodyfold.massList[0] + bodyfold.massList[1] + bodyfold.massList[2];
-        double M_inv = 1/M;
-
-        double mu = G*M;
-        double mu_inv = G_inv * M_inv;
 
         double epsilon = velrel.squaredNorm()/2 - mu/r_rel;
-        //cout << "mu: " << mu << endl;
-        //cout << "r, epsilon: " << r_rel << ", " << epsilon << endl;
-        //cout << "r dot v: " << posrel.dot(velrel) << endl;
 
-        //Vector2d e = mu_inv * ((epsilon + velrel.squaredNorm()/2)*posrel - velrel.dot(posrel)*velrel);
-        Vector2d e = (velrel.squaredNorm()/mu - 1/r_rel)*posrel - velrel.dot(posrel)*velrel/mu;
-        double e_mag = e.norm();
-        //cout << "e, e mag: " << e.transpose() << ", " << e_mag << endl;
+        //if (epsilon > 0)
+        //    return outerBinaryOnCOMForTHYPER(T, innerCOM, innerCOMvel, i);
 
+        /*
         double sqrt_e_squared_m_one = sqrt(e_mag*e_mag-1);
 
-        //TRY
-
-        //double v0 = acos(e.dot(posrel)/(e_mag*r_rel));
-        //if (posrel.dot(velrel) < 0)
-        //    v0 = 2*M_PI - v0;
-        //cout << "true anomaly: " << v0 << endl;
-//
-        //double sinv0 = sin(v0);
-        //double cosv0 = cos(v0);
-//
-        double omega = atan2(e.y(), e.x());
-        int SIGN = 1;
-        if (cross(posrel, velrel) < 0)
-            SIGN = -SIGN;
-
-        double a = mu/(2*epsilon); // TEST TRIVIAL
-        //double R = a*(1-e_mag*e_mag)/(1+e_mag*cosv0);
-
-        //return {{R*cos(v0-omega), R*sin(v0-omega)}, velrel};
-
-        //cout << "e cross r: " << cross(e, posrel) << endl;
+        double a = mu/(2*epsilon);
 
         double E0top = SIGN * sqrt_e_squared_m_one * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel)));
         double E0bottom = (e_mag*e_mag*r_rel + e.dot(posrel));
 
         double H0 = atanh(E0top/E0bottom);
-        //cout << "H0 before: " << H0 << endl;
-        //double sinE0 = E0top/sqrt(E0top*E0top + E0bottom*E0bottom);*
-
-        //cout << "Ey, Ex, E0_after, sinE0: " <<  E0top << ", " << E0bottom << ", " << E0 << ", " << sinE0 << endl;
-
-        //double coshH = cosh(H0);
-        //double cosv = (coshH - e_mag)/(1 - e_mag*coshH);
-        //double sinv = -sqrt_e_squared_m_one*sinh(H0)/(1-e_mag*coshH);
-        //double v = atan2(sinv, cosv) + omega;
-        ////double sinv = zeroone_negpos(E <= M_PI)*sqrt(1-cosv*cosv); // cosv, sinv good given E, e
-//
-        //double r = a*(e_mag*e_mag-1)/(1+e_mag*cosv);
-//
-        //return {{r*cos(v), r*sin(v)}, velrel};
-
 
         double M0 = e_mag*sinh(H0) - H0;
-        //cout << "HEYO " << M0 << endl;
 
         double n = sqrt(mu/pow(a,3));
 
-        //double M_true = n*T + M0;
-        //int toRange = M_true/(2*M_PI) - (M_true < 0);
         double M_true = M0 + SIGN*n*T;
 
         double H = Kepler::KEPLER(M_true, e_mag);
-        //cout << M0 << ", " << e_mag << ": " << H << endl;
 
         double coshH = cosh(H);
         double cosv = (coshH - e_mag)/(1 - e_mag*coshH);
         double sinv = -sqrt_e_squared_m_one*sinh(H)/(1-e_mag*coshH);
-        double vfactor = SIGN/(sqrt(a/mu)*sqrt_e_squared_m_one);
+        double vfactor = 1/(sqrt(a/mu)*sqrt_e_squared_m_one);
         double vr = vfactor*e_mag*sinv;
         double vtheta = vfactor*(1+e_mag*cosv);
 
         Vector2d TRYPOS(a*(e_mag - cosh(H)), a*sqrt_e_squared_m_one*sinh(H));
         Vector2d TRYVEL(vr*cosv - vtheta*sinv, vr*sinv + vtheta*cosv);
 
-        cout << "ITS HYPERING TIME" << endl;
+        cout << "HYPERBOLIC" << endl;
 
-        return {rotate(TRYPOS, omega), rotate(TRYVEL, omega)};
-/*
-        double coshH = cosh(H);
-        double cosv = (coshH - e_mag)/(1 - e_mag*coshH);
-        double sinv = -sqrt_e_squared_m_one*sinh(H)/(1-e_mag*coshH);
-        //double v = atan2(sinv, cosv) + omega;
-        //double sinv = zeroone_negpos(E <= M_PI)*sqrt(1-cosv*cosv); // cosv, sinv good given E, e
+        return {rotate(TRYPOS, omega), SIGN*rotate(TRYVEL, omega)};
+         */
 
-        double r = a*(e_mag*e_mag-1)/(1+e_mag*cosv);
+        Vector2d e = mu_inv * ((epsilon + velrel.squaredNorm()/2)*posrel - velrel.dot(posrel)*velrel);
+        double e_mag = e.norm();
 
-        double vfactor = 1/(sqrt(-a/mu)*sqrt_e_squared_m_one);
-        double vr = vfactor*e_mag*sinv;
-        double vtheta = vfactor*(1+e_mag*cosv);
-        cout << "ITS HYPERING TIME" << endl;
+        double omega = atan2(e.y(), e.x());
 
-        return {{r*cos(v), r*sin(v)}, {vr*cos(v) - vtheta*sin(v), vr*sin(v) + vtheta*cos(v)}};*/
+        double sqrt_one_e_squared, cos_E_cosh_H, sin_E_negsinh_H, a, sqrt_2epsilon;
+        if (epsilon > 0) {
+
+            sqrt_one_e_squared = sqrt(e_mag*e_mag - 1);
+            a = mu/(2*epsilon);
+            sqrt_2epsilon = sqrt(2*epsilon);
+            double n = 2*epsilon*mu_inv * sqrt_2epsilon; // DOESNT WORK HYPERBOLIC //sqrt(mu/pow(a,3));
+
+            double E0top = SIGN * sqrt_one_e_squared * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel)));
+            double E0bottom = (e_mag*e_mag*r_rel + e.dot(posrel));
+
+            double H0 = atanh(E0top/E0bottom);
+
+            double M0 = e_mag*sinh(H0) - H0;
+
+            double M_true = M0 + SIGN*n*T;
+
+            double H = Kepler::KEPLER(M_true, e_mag);
+
+            cos_E_cosh_H = cosh(H);
+            sin_E_negsinh_H = zeroone_negpos(H <= 0) * sqrt(cos_E_cosh_H*cos_E_cosh_H - 1);
+
+        } else if (epsilon < 0) {
+
+            sqrt_one_e_squared = sqrt(1 - e_mag*e_mag);
+            a = -mu/(2*epsilon);
+            sqrt_2epsilon = sqrt(-2*epsilon);
+            double n = -2*epsilon*mu_inv * sqrt_2epsilon; // DOESNT WORK HYPERBOLIC //sqrt(mu/pow(a,3));
+
+
+            double E0top = SIGN * sqrt_one_e_squared * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel))) ;//zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel))
+            double E0bottom = (e_mag*e_mag*r_rel + e.dot(posrel));
+
+            double E0 = atan2(E0top, E0bottom);
+            double sinE0 = E0top/sqrt(E0top*E0top + E0bottom*E0bottom);
+
+            double M0 = E0 - e_mag*sinE0; // NEG PI TO PI
+
+            double M_true = M0 + SIGN*n*T;
+            int toRange = M_true/(2*M_PI) - (M_true < 0);
+
+            double E = Kepler::KEPLER(M_true - toRange * 2 * M_PI, e_mag);
+
+            cos_E_cosh_H = cos(E);
+            sin_E_negsinh_H = zeroone_negpos(E <= M_PI) * sqrt(1 - cos_E_cosh_H*cos_E_cosh_H);
+
+        } else {cout << 1/0 << endl;}
+
+        double inv_factor = 1/(1 - e_mag*cos_E_cosh_H);
+        double cosv = (cos_E_cosh_H - e_mag) * inv_factor;
+        double sinv = sqrt_one_e_squared * sin_E_negsinh_H * inv_factor;
+
+        double r = a*sqrt_one_e_squared*sqrt_one_e_squared/(1+e_mag*cosv);
+
+        double vfactor = sqrt_2epsilon/sqrt_one_e_squared;
+        double vr = vfactor * e_mag * sinv;
+        double vtheta = vfactor * (1+e_mag*cosv);
+
+        cout << "ITS TIME " << (int)(epsilon/abs(epsilon)) << endl;
+
+        Vector2d TRYPOS(r*cosv, r*sinv);
+        Vector2d TRYVEL(vr*cosv - vtheta*sinv, vr*sinv + vtheta*cosv);
+
+        return {rotate(TRYPOS, omega), SIGN*rotate(TRYVEL, omega)};
     }
 
     double binaryApproximationRun(nat i) {
