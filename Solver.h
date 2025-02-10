@@ -44,7 +44,7 @@ private:
 
     Bodyfold bodyfold;
 
-    const double distanceToLengthPerDt_MAX = 2000;
+    const double distanceToLengthPerDt_MAX = 100;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
     const double sowingDistanceRatio = 0; //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
@@ -169,9 +169,6 @@ private:
         Vector2d pos2New = posrel - 2*posrel.dot(ohat)*ohat;
         Vector2d vel2New = velrel - 2*velrel.dot(ehat)*ehat;
 
-        //----- PURE APPROX:
-        //YOU NEED TO CALCULATE NEW COM, COMvel ACCORDING TO 2BP with body i, and also correct body i
-
         Vector2d COM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) * M_inv;
         Vector2d COMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) * M_inv;
 
@@ -200,42 +197,6 @@ private:
 
 
         double epsilon = velrel.squaredNorm()/2 - mu/r_rel;
-
-        //if (epsilon > 0)
-        //    return outerBinaryOnCOMForTHYPER(T, innerCOM, innerCOMvel, i);
-
-        /*
-        double sqrt_e_squared_m_one = sqrt(e_mag*e_mag-1);
-
-        double a = mu/(2*epsilon);
-
-        double E0top = SIGN * sqrt_e_squared_m_one * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel)));
-        double E0bottom = (e_mag*e_mag*r_rel + e.dot(posrel));
-
-        double H0 = atanh(E0top/E0bottom);
-
-        double M0 = e_mag*sinh(H0) - H0;
-
-        double n = sqrt(mu/pow(a,3));
-
-        double M_true = M0 + SIGN*n*T;
-
-        double H = Kepler::KEPLER(M_true, e_mag);
-
-        double coshH = cosh(H);
-        double cosv = (coshH - e_mag)/(1 - e_mag*coshH);
-        double sinv = -sqrt_e_squared_m_one*sinh(H)/(1-e_mag*coshH);
-        double vfactor = 1/(sqrt(a/mu)*sqrt_e_squared_m_one);
-        double vr = vfactor*e_mag*sinv;
-        double vtheta = vfactor*(1+e_mag*cosv);
-
-        Vector2d TRYPOS(a*(e_mag - cosh(H)), a*sqrt_e_squared_m_one*sinh(H));
-        Vector2d TRYVEL(vr*cosv - vtheta*sinv, vr*sinv + vtheta*cosv);
-
-        cout << "HYPERBOLIC" << endl;
-
-        return {rotate(TRYPOS, omega), SIGN*rotate(TRYVEL, omega)};
-         */
 
         Vector2d e = mu_inv * ((epsilon + velrel.squaredNorm()/2)*posrel - velrel.dot(posrel)*velrel);
         double e_mag = e.norm();
@@ -299,8 +260,6 @@ private:
         double vfactor = sqrt_2epsilon/sqrt_one_e_squared;
         double vr = vfactor * e_mag * sinv;
         double vtheta = vfactor * (1+e_mag*cosv);
-
-        cout << "ITS TIME " << (int)(epsilon/abs(epsilon)) << endl;
 
         Vector2d TRYPOS(r*cosv, r*sinv);
         Vector2d TRYVEL(vr*cosv - vtheta*sinv, vr*sinv + vtheta*cosv);

@@ -17,23 +17,24 @@ std::chrono::steady_clock::time_point now() {
 int main() {
 
     string str = R"(Body #0:
-Mass: 1.6139790096523716
-Position: -7.4127778857521562  2.6437969434810755
-Velocity: 1.2384332358514447 4.1611044364540284
+Mass: 1.253857183332397
+Position: 0.5841975976101104 -5.050610985498239
+Velocity: -1.188826753689202  2.323456260358888
 Body #1:
-Mass: 1.9161529415228968
-Position:  4.6445194492089641 -1.7063356573292916
-Velocity:  2.9802272023059801 -1.8671968038071118
+Mass: 0.845155832408497
+Position: -3.838964943954853  2.697682625408106
+Velocity: -1.752984783746607 -1.406636458453689
 Body #2:
-Mass: 1.7100424649678143
-Position:  1.7920363786491613 -0.5832794822223315
-Velocity: -4.5082952766148754 -1.8351009601683086)";
-    //initialData init = Bodyfold::stringToInitialData(str);
-    //init = Bodyfold::transformToCOMSystem(init);
+Mass: 1.134936614096366
+Position: 2.213359959795017 3.570933045243741
+Velocity:  2.618793192538037 -1.519428745051161
+)";
+    initialData init = Bodyfold::stringToInitialData(str);
+    init = Bodyfold::transformToCOMSystem(init);
 
     //Solver solver(16500000, pow(10, -4), init); //000
 
-    initialData init = Bodyfold::generateRandomCOM();
+    //initialData init = Bodyfold::generateRandomCOM();
     Solver solver(400000, pow(10, -4), init);
 
     auto start = now();
