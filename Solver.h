@@ -13,7 +13,7 @@ using namespace Eigen;
 #define VISUALIZE true
 #define COMPARE_QUANTS true
 #define HALTCHECK true
-#define SOW false
+#define SOW true
 
 #if VISUALIZE
 #include <unistd.h>
@@ -46,7 +46,7 @@ private:
     Bodyfold bodyfold;
 
 #if SOW
-    const double distanceToLengthPerDt_MAX = 2000;
+    const double distanceToLengthPerDt_MAX = 100;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
     const double sowingDistanceRatio = 100; //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
