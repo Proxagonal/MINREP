@@ -12,7 +12,8 @@ using namespace Eigen;
 
 #define VISUALIZE true
 #define COMPARE_QUANTS true
-#define HALTCHECK false
+#define HALTCHECK true
+#define SOW false
 
 #if VISUALIZE
 #include <unistd.h>
@@ -44,10 +45,12 @@ private:
 
     Bodyfold bodyfold;
 
+#if SOW
     const double distanceToLengthPerDt_MAX = 2000;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
-    const double sowingDistanceRatio = 0; //100?
+    const double sowingDistanceRatio = 100; //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
+#endif
 
     vector<double> massRatios;
 
@@ -60,6 +63,7 @@ private:
     const int comparePerPasses = 20000;
 #endif
 
+#if SOW
     inline static double cross(Vector2d &a, Vector2d &b) {
         return a.x()*b.y() - a.y()*b.x();
     }
@@ -74,7 +78,8 @@ private:
         double sinA = sin(angle);
 
         return {v.x() * cosA - v.y() * sinA, v.x() * sinA + v.y() * cosA};
-    } //MAKE SURE GOOD
+    }
+#endif
 
     //returns initial conditions of system
     static initialData initialConditions() {
@@ -115,6 +120,7 @@ private:
         return G * diff / (diff.norm() * diff.squaredNorm());
     }
 
+#if SOW
     tuple<double, Vector2d, Vector2d> innerBinarySpinOnZero(nat i) {
 
         nat uno = (i+1) % NUM;
@@ -254,7 +260,7 @@ private:
         Vector2d velrel = bodyfold.velList[i] - innerCOMvel;
 
         double r_rel = posrel.norm();
-        int SIGN = zeroone_negpos(cross(posrel, velrel) >= 0); //BOUNDARY COND
+        int SIGN = zeroone_negpos(cross(posrel, velrel) >= 0);
 
         double epsilon = velrel.squaredNorm()/2 - mu/r_rel;
 
@@ -362,6 +368,7 @@ private:
 
         return T;
     }
+#endif
 
 #if HALTCHECK
 
@@ -570,38 +577,14 @@ public:
     }
 
     void run() {
+
+#if SOW
+        double tSkipped = 0;
+#endif
         
         for (long pass = 0; pass*dt < T; pass++) {
 
-            doSymplecticIntegrator();
-
-#if HALTCHECK
-            if (pass%haltCheckPerPasses == 0) {
-                tuple<int, int> result = haltCheck();
-                cout << get<0>(result) << " " << get<1>(result) << endl;
-                cout << pass*dt << endl;
-            }
-#endif
-
-#if VISUALIZE
-            if (pass%framePerPasses == 0) {
-                visuals.visualizationLoop(getDrawInfo());
-                if (!isWindowOpen())
-                    break;
-            }
-#endif
-#if COMPARE_QUANTS
-            if (pass%comparePerPasses == 0) {
-                compare(pass);
-            }
-#endif
-        }
-    }
-
-    void run_vdt() {
-
-        for (long pass = 0; pass*dt < T; pass++) {
-
+#if SOW
             for (int i = 0; i < NUM; i++) {
 
                 int j = (i + 1) % NUM;
@@ -614,14 +597,11 @@ public:
                     && relpos.dot(relvel) <= 0)
 
                     if (sdrSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
-                        cout << "---------------------------------" << endl;
-                        cout << "---------------CUT---------------" << endl;
-                        cout << "---------------------------------" << endl;
-                        double T = binaryApproximationRun((j+1)%NUM);
-                        cout << "Skip: " << T << endl;
+                        tSkipped += binaryApproximationRun((j+1)%NUM);
                         break;
                     }
             }
+#endif
 
             doSymplecticIntegrator();
 
@@ -634,7 +614,7 @@ public:
 #endif
 
 #if VISUALIZE
-            if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/30) == 0)) {
+            if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/visuals.slowerBy) == 0)) {
                 visuals.visualizationLoop(getDrawInfo());
                 if (!isWindowOpen())
                     break;

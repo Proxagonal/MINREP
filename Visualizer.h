@@ -69,6 +69,8 @@ private:
 
 public:
 
+    static const int slowerBy = 30;
+
     Visualizer(int winX, int winY, double sysrad):
             window{sf::VideoMode(winX, winY), "NBP"} {
         view.setCenter(0, 0);
@@ -81,7 +83,7 @@ public:
 
         window.setView(view);
 
-        auto pos = sf::Vector2i(1000,0);
+        auto pos = sf::Vector2i(1000,70);
         window.setPosition(pos);
     }
 

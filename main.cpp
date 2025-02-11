@@ -30,15 +30,16 @@ Mass: 1.9156592834675787
 Position: 3.7003426315958112 1.8816299261214242
 Velocity: 0.47959138654987932 0.56144778625563552
 )";
-    //initialData init = Bodyfold::stringToInitialData(str);
-    //init = Bodyfold::transformToCOMSystem(init);
+    initialData init = Bodyfold::stringToInitialData(str);
+    init = Bodyfold::transformToCOMSystem(init);
 
-    initialData init = Bodyfold::generateRandomCOM();
+    bool RAND = true;
+    init = RAND ? Bodyfold::generateRandomCOM() : init;
     Solver solver(400000, pow(10, -4), init);
 
     auto start = now();
 
-    solver.run_vdt();
+    solver.run();
 
     auto end = now();
 

@@ -24,7 +24,7 @@ private:
     constexpr static double massMin = 0.5;
     constexpr static double massMax = 2;
     constexpr static double systemRadius = 35;
-    constexpr static double velocityMax = 12;
+    constexpr static double velocityMax = 19;
 
     static Vector2d toCartesian(double rad, double theta) {
         return {rad*cos(theta), rad*sin(theta)};
