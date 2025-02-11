@@ -108,8 +108,8 @@ static double keplerInitial(double M, double e) {
             return 2*M_PI - ellipticalTaylor(2*M_PI - M, e);
         return ellipticalTaylor(M, e);
     }
-    if (e>1) {
-        if (M <= 10)
+    if (e > 1) {
+        if (abs(M) <= 10)
             return hyperbolicTaylor(M, e);
         return 3.3/M + asinh(M/e);
     }

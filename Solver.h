@@ -44,7 +44,7 @@ private:
 
     Bodyfold bodyfold;
 
-    const double distanceToLengthPerDt_MAX = 100;
+    const double distanceToLengthPerDt_MAX = 2000;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
     const double sowingDistanceRatio = 0; //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
@@ -135,35 +135,51 @@ private:
         double epsilon = v2_rel/2 - mu/r_rel;
 
         Vector2d e = mu_inv * ((epsilon + v2_rel/2)*posrel - vdotr * velrel);
-        cout << e.transpose() << endl;
+        double e_mag = e.norm();
 
-        //int SIGN = 1 - 2*signbit(cross(e, posrel)); // conf(cross)
+        if (e_mag == 0)
+            throw std::out_of_range("Insane circular orbit with no resolution");
 
-        double EHycomp = -sqrt(2*abs(epsilon)) * abs(vdotr); // not sure about minus sign at all
-        double EHxcomp = v2_rel*r_rel - mu;
-
+        int SIGN = zeroone_negpos(cross(posrel, velrel) >= 0); //BOUNDARY COND
         double T;
-        if (epsilon <= 0) { //USE RADIAL KEPLERS EQUATION
+        if (e_mag < 1) {
 
-            double E = atan2(EHycomp, EHxcomp);
+            double sqrt_one_minus_e_squared = sqrt(1-e_mag*e_mag);
+
+            double Eycomp = sqrt_one_minus_e_squared * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel)));
+            double Excomp = (e_mag*e_mag*r_rel + e.dot(posrel));
+
+            double E = atan2(Eycomp, Excomp);
             E = 2*M_PI*(E < 0) + E;
 
-            double sinE = EHycomp/sqrt(EHycomp*EHycomp + EHxcomp*EHxcomp); //ok w.r.t E
+            double sinE = Eycomp/sqrt(Eycomp*Eycomp + Excomp*Excomp);
             double Mean = E - e.norm()*sinE; // ok w.r.t. E
 
             T = 2 * mu * sqrt(-1/pow(2*epsilon, 3)) * (2*M_PI - Mean);
 
-        } else {
+        } else if (e_mag > 1) {
 
-            double H = atanh(EHycomp/EHxcomp);
-            double sinhH = EHycomp/sqrt(EHxcomp*EHxcomp - EHycomp*EHycomp);
+            double sqrt_e_squared_m_one = sqrt(e_mag*e_mag - 1);
+
+            double Hycomp = SIGN * sqrt_e_squared_m_one * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel)));
+            double Hxcomp = (e_mag*e_mag*r_rel + e.dot(posrel));
+
+            double H = atanh(Hycomp/Hxcomp);
+            double sinhH = Hycomp/sqrt(Hxcomp*Hxcomp - Hycomp*Hycomp);
 
             double Mean = e.norm()*sinhH - H;
 
             T = 2 * mu * sqrt(1/(pow(2*epsilon, 3))) * abs(Mean);
+        } else { //PARABOLIC
+            double h = cross(posrel, velrel);
+            double D = (r_rel - posrel.x())/posrel.y();
+
+            double factor = mu_inv*mu_inv*abs(pow(h, 3))/2;
+
+            T = 2 * abs(factor*D*(1+D*D / 3));
         }
 
-        Vector2d ehat = e.normalized();
+        Vector2d ehat = e/e_mag;
         Vector2d ohat(-ehat.y(), ehat.x());
 
         Vector2d pos2New = posrel - 2*posrel.dot(ohat)*ohat;
@@ -180,7 +196,52 @@ private:
         return {T, COM, COMvel};
     }
 
+    tuple<Vector2d, Vector2d> outerBinaryOnCOM_CIRCLE(double T, double epsilon, double mu_inv, Vector2d &posrel, Vector2d &velrel) {
+
+        double n = -2*epsilon*mu_inv * sqrt(-2*epsilon);
+        double theta = n*T;
+
+        return {rotate(posrel, theta), rotate(velrel, theta)};
+    }
+
+    tuple<Vector2d, Vector2d> outerBinaryOnCOM_PARABOLA(double T, Vector2d &posrel, Vector2d &velrel, double mu_inv, double omega, int SIGN) {
+
+        double h = cross(posrel, velrel);
+        double r_rel = posrel.norm();
+        double D = (r_rel - posrel.x())/posrel.y();
+
+        double factor = mu_inv*mu_inv*abs(pow(h, 3))/2;
+
+        double T_fromAxis = factor*D*(1+D*D / 3);
+
+        double T_new = T_fromAxis + SIGN*T;
+
+        double A = (3/(2*factor)) * T_new;
+        double B = cbrt(A + sqrt(1+A*A));
+
+        double nu_new = 2*atan(B - 1/B);
+
+        double r_new = h*h*mu_inv/(1+cos(nu_new));
+
+        double cosv = cos(nu_new);
+        double sinv = sin(nu_new);
+
+        double vfactor = sqrt(1/(mu_inv * r_rel * (1+cosv)));
+
+        Vector2d TRYPOS(r_new * cosv, r_new * sinv);
+        Vector2d TRYVEL(vfactor * sinv * (sinv - 1 - cosv), vfactor * cosv * (sinv + 1 + cosv));
+
+        return {rotate(TRYPOS, omega), SIGN*rotate(TRYVEL, omega)};
+    }
+
     tuple<Vector2d, Vector2d> outerBinaryOnCOMForT(double T, Vector2d &innerCOM, Vector2d &innerCOMvel, nat i) {
+
+        // EDGE CASES:
+        // EPSILON = 0, ECC = 1: seperated case
+        // ECC = 0: seperated case
+        // r cross v = 0: well done (?)
+        // r_vec = 0_vec: ha
+        // E0top = pm * E0bottom: never
 
         double M = bodyfold.massList[0] + bodyfold.massList[1] + bodyfold.massList[2];
         double M_inv = 1/M;
@@ -195,28 +256,32 @@ private:
         double r_rel = posrel.norm();
         int SIGN = zeroone_negpos(cross(posrel, velrel) >= 0); //BOUNDARY COND
 
-
         double epsilon = velrel.squaredNorm()/2 - mu/r_rel;
 
         Vector2d e = mu_inv * ((epsilon + velrel.squaredNorm()/2)*posrel - velrel.dot(posrel)*velrel);
         double e_mag = e.norm();
-
         double omega = atan2(e.y(), e.x());
 
+        if (e_mag == 0)
+            return outerBinaryOnCOM_CIRCLE(SIGN * T, epsilon, mu_inv, posrel, velrel);
+        if (e_mag == 1)
+            return outerBinaryOnCOM_PARABOLA(T, posrel, velrel, mu_inv, omega, SIGN);
+
         double sqrt_one_e_squared, cos_E_cosh_H, sin_E_negsinh_H, a, sqrt_2epsilon;
-        if (epsilon > 0) {
+        if (e_mag > 1) {
 
             sqrt_one_e_squared = sqrt(e_mag*e_mag - 1);
             a = mu/(2*epsilon);
             sqrt_2epsilon = sqrt(2*epsilon);
-            double n = 2*epsilon*mu_inv * sqrt_2epsilon; // DOESNT WORK HYPERBOLIC //sqrt(mu/pow(a,3));
+            double n = 2*epsilon*mu_inv * sqrt_2epsilon;
 
             double E0top = SIGN * sqrt_one_e_squared * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel)));
             double E0bottom = (e_mag*e_mag*r_rel + e.dot(posrel));
 
             double H0 = atanh(E0top/E0bottom);
+            double sinhH0 = E0top/sqrt(E0bottom*E0bottom - E0top*E0top);
 
-            double M0 = e_mag*sinh(H0) - H0;
+            double M0 = e_mag*sinhH0 - H0;
 
             double M_true = M0 + SIGN*n*T;
 
@@ -225,12 +290,12 @@ private:
             cos_E_cosh_H = cosh(H);
             sin_E_negsinh_H = zeroone_negpos(H <= 0) * sqrt(cos_E_cosh_H*cos_E_cosh_H - 1);
 
-        } else if (epsilon < 0) {
+        } else if (e_mag < 1) {
 
             sqrt_one_e_squared = sqrt(1 - e_mag*e_mag);
             a = -mu/(2*epsilon);
             sqrt_2epsilon = sqrt(-2*epsilon);
-            double n = -2*epsilon*mu_inv * sqrt_2epsilon; // DOESNT WORK HYPERBOLIC //sqrt(mu/pow(a,3));
+            double n = -2*epsilon*mu_inv * sqrt_2epsilon;
 
 
             double E0top = SIGN * sqrt_one_e_squared * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel))) ;//zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel))
@@ -249,7 +314,7 @@ private:
             cos_E_cosh_H = cos(E);
             sin_E_negsinh_H = zeroone_negpos(E <= M_PI) * sqrt(1 - cos_E_cosh_H*cos_E_cosh_H);
 
-        } else {cout << 1/0 << endl;}
+        }
 
         double inv_factor = 1/(1 - e_mag*cos_E_cosh_H);
         double cosv = (cos_E_cosh_H - e_mag) * inv_factor;
@@ -268,8 +333,6 @@ private:
     }
 
     double binaryApproximationRun(nat i) {
-        cout << bodyfold.toString() << endl;
-
 
         nat uno = (i+1) % NUM;
         nat dos = (i+2) % NUM;
@@ -460,7 +523,6 @@ private:
 
     //calculates potential energy
     double calcPotential() {
-
         double total = 0;
 
         for (int i = 0; i < NUM; i++)
@@ -538,14 +600,9 @@ public:
 
     void run_vdt() {
 
-        bool TEMPFLAGDELETEAFTERSOWWORKS = false;
-
         for (long pass = 0; pass*dt < T; pass++) {
 
             for (int i = 0; i < NUM; i++) {
-
-                if (TEMPFLAGDELETEAFTERSOWWORKS)
-                    break;
 
                 int j = (i + 1) % NUM;
 
@@ -562,7 +619,6 @@ public:
                         cout << "---------------------------------" << endl;
                         double T = binaryApproximationRun((j+1)%NUM);
                         cout << "Skip: " << T << endl;
-                        TEMPFLAGDELETEAFTERSOWWORKS = false;
                         break;
                     }
             }
@@ -578,7 +634,7 @@ public:
 #endif
 
 #if VISUALIZE
-            if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/10) == 0)) {
+            if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/30) == 0)) {
                 visuals.visualizationLoop(getDrawInfo());
                 if (!isWindowOpen())
                     break;
@@ -600,7 +656,7 @@ public:
 
         double pot = calcPotential();
 
-        return {mom.x(), mom.y(), kin, pot};
+        return {mom.x(), mom.y(), kin, pot, bodyfold.sumAngularMomentum()};
     };
 
 #if COMPARE_QUANTS

@@ -80,6 +80,9 @@ public:
         view.setSize(-scale, scale * winY/winX);
 
         window.setView(view);
+
+        auto pos = sf::Vector2i(1000,0);
+        window.setPosition(pos);
     }
 
     bool isOpen() {

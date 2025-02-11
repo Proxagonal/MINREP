@@ -24,7 +24,7 @@ private:
     constexpr static double massMin = 0.5;
     constexpr static double massMax = 2;
     constexpr static double systemRadius = 35;
-    constexpr static double velocityMax = 19;
+    constexpr static double velocityMax = 12;
 
     static Vector2d toCartesian(double rad, double theta) {
         return {rad*cos(theta), rad*sin(theta)};
@@ -45,24 +45,37 @@ private:
         //return (double) rand() / RAND_MAX;
     }
 
+    inline static double cross(Vector2d &a, Vector2d &b) {
+        return a.x()*b.y() - a.y()*b.x();
+    }
+
+    inline static double cross(Vector2d a, Vector2d b) {
+        return a.x()*b.y() - a.y()*b.x();
+    }
+
 public:
 
     vData posList;
     vData velList;
     vData accList;
-    Data massList;
+    const Data massList;
 
-    Bodyfold(const initialData& init) {
+    Bodyfold(const initialData& init): massList([&init] {
+            if (init.size() != NUM)
+                throw std::invalid_argument("Not Correct Body Amount");
 
-        if (init.size() != NUM)
-            throw invalid_argument("Not Correct Body Amount");
-
+            Data tempMassList;
+            int i = 0;
+            for (const auto& [mass, pos, vel] : init) {
+                tempMassList[i++] = mass;
+            }
+            return tempMassList;
+        }()) {
         int i = 0;
         for (auto const &[mass, pos, vel] : init) {
             posList[i] = pos;
             velList[i] = vel;
             accList[i] = Vector2d(0, 0);
-            massList[i] = mass;
             i++;
         }
     };
@@ -75,6 +88,19 @@ public:
 
         return kin;
     };
+
+    double sumAngularMomentum() {
+
+        Vector2d COM = getCOMPosition();
+        Vector2d COMvel = getCOMVelocity();
+
+        double total = 0;
+
+        for (int i = 0; i < NUM; i++)
+            total += massList[i] * cross(posList[i] - COM, velList[i] - COMvel);
+
+        return total;
+    }
 
     Vector2d sumMomentum() {
 
@@ -97,7 +123,6 @@ public:
     Vector2d getCOMVelocity() {
 
         return sumMomentum()/sumMass();
-
     }
 
     Vector2d getCOMPosition() {
