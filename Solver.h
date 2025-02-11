@@ -5,13 +5,13 @@
 #include "Bodyfold.h"
 #include "Quantities.h"
 #include "Visualizer.h"
-#include <iomanip>
+#include "Kepler.h"
 
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE false
-#define COMPARE_QUANTS false
+#define VISUALIZE true
+#define COMPARE_QUANTS true
 #define HALTCHECK false
 
 #if VISUALIZE
@@ -23,6 +23,8 @@ static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
 
 static const double G = 4*M_PI*M_PI;
+static const double G_inv = 1/G;
+
 
 typedef uint_fast8_t nat;
 
@@ -36,11 +38,17 @@ private:
 
 #if HALTCHECK
     static const int haltCheckPerPasses = 20000;
-    static const int ratio = 10;
-    static const int ratioSquare = ratio*ratio;
+    static const int escapeDistanceRatio = 10;
+    static const int edrSquared = escapeDistanceRatio*escapeDistanceRatio;
 #endif
 
     Bodyfold bodyfold;
+
+    const double distanceToLengthPerDt_MAX = 2000;
+    const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
+    const double sowingDistanceRatio = 0; //100?
+    const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
+
     vector<double> massRatios;
 
 #if VISUALIZE
@@ -51,6 +59,22 @@ private:
     Quantities initialQuants;
     const int comparePerPasses = 20000;
 #endif
+
+    inline static double cross(Vector2d &a, Vector2d &b) {
+        return a.x()*b.y() - a.y()*b.x();
+    }
+    inline static int sign(double x) {
+        return 1 - 2*signbit(x);
+    }
+    inline static int zeroone_negpos(bool b) {
+        return 2*b - 1;
+    }
+    inline static Vector2d rotate(Vector2d &v, double angle) {
+        double cosA = cos(angle);
+        double sinA = sin(angle);
+
+        return {v.x() * cosA - v.y() * sinA, v.x() * sinA + v.y() * cosA};
+    } //MAKE SURE GOOD
 
     //returns initial conditions of system
     static initialData initialConditions() {
@@ -91,6 +115,254 @@ private:
         return G * diff / (diff.norm() * diff.squaredNorm());
     }
 
+    tuple<double, Vector2d, Vector2d> innerBinarySpinOnZero(nat i) {
+
+        nat uno = (i+1) % NUM;
+        nat dos = (i+2) % NUM;
+
+        Vector2d posrel = bodyfold.posList[dos] - bodyfold.posList[uno];
+        Vector2d velrel = bodyfold.velList[dos] - bodyfold.velList[uno];
+
+        double r_rel = posrel.norm();
+        double v2_rel = velrel.squaredNorm();
+        double vdotr = velrel.dot(posrel);
+
+        double M = bodyfold.massList[uno] + bodyfold.massList[dos];
+        double M_inv = 1/M;
+        double mu = G*M;
+        double mu_inv = M_inv * G_inv;
+
+        double epsilon = v2_rel/2 - mu/r_rel;
+
+        Vector2d e = mu_inv * ((epsilon + v2_rel/2)*posrel - vdotr * velrel);
+        double e_mag = e.norm();
+
+        if (e_mag == 0)
+            throw std::out_of_range("Insane circular orbit with no resolution");
+
+        int SIGN = zeroone_negpos(cross(posrel, velrel) >= 0); //BOUNDARY COND
+        double T;
+        if (e_mag < 1) {
+
+            double sqrt_one_minus_e_squared = sqrt(1-e_mag*e_mag);
+
+            double Eycomp = sqrt_one_minus_e_squared * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel)));
+            double Excomp = (e_mag*e_mag*r_rel + e.dot(posrel));
+
+            double E = atan2(Eycomp, Excomp);
+            E = 2*M_PI*(E < 0) + E;
+
+            double sinE = Eycomp/sqrt(Eycomp*Eycomp + Excomp*Excomp);
+            double Mean = E - e.norm()*sinE; // ok w.r.t. E
+
+            T = 2 * mu * sqrt(-1/pow(2*epsilon, 3)) * (2*M_PI - Mean);
+
+        } else if (e_mag > 1) {
+
+            double sqrt_e_squared_m_one = sqrt(e_mag*e_mag - 1);
+
+            double Hycomp = SIGN * sqrt_e_squared_m_one * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel)));
+            double Hxcomp = (e_mag*e_mag*r_rel + e.dot(posrel));
+
+            double H = atanh(Hycomp/Hxcomp);
+            double sinhH = Hycomp/sqrt(Hxcomp*Hxcomp - Hycomp*Hycomp);
+
+            double Mean = e.norm()*sinhH - H;
+
+            T = 2 * mu * sqrt(1/(pow(2*epsilon, 3))) * abs(Mean);
+        } else { //PARABOLIC
+            double h = cross(posrel, velrel);
+            double D = (r_rel - posrel.x())/posrel.y();
+
+            double factor = mu_inv*mu_inv*abs(pow(h, 3))/2;
+
+            T = 2 * abs(factor*D*(1+D*D / 3));
+        }
+
+        Vector2d ehat = e/e_mag;
+        Vector2d ohat(-ehat.y(), ehat.x());
+
+        Vector2d pos2New = posrel - 2*posrel.dot(ohat)*ohat;
+        Vector2d vel2New = velrel - 2*velrel.dot(ehat)*ehat;
+
+        Vector2d COM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) * M_inv;
+        Vector2d COMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) * M_inv;
+
+        bodyfold.posList[uno] = - bodyfold.massList[dos]*M_inv * pos2New;
+        bodyfold.velList[uno] = - bodyfold.massList[dos]*M_inv * vel2New;
+        bodyfold.posList[dos] = + bodyfold.massList[uno]*M_inv * pos2New;
+        bodyfold.velList[dos] = + bodyfold.massList[uno]*M_inv * vel2New;
+
+        return {T, COM, COMvel};
+    }
+
+    tuple<Vector2d, Vector2d> outerBinaryOnCOM_CIRCLE(double T, double epsilon, double mu_inv, Vector2d &posrel, Vector2d &velrel) {
+
+        double n = -2*epsilon*mu_inv * sqrt(-2*epsilon);
+        double theta = n*T;
+
+        return {rotate(posrel, theta), rotate(velrel, theta)};
+    }
+
+    tuple<Vector2d, Vector2d> outerBinaryOnCOM_PARABOLA(double T, Vector2d &posrel, Vector2d &velrel, double mu_inv, double omega, int SIGN) {
+
+        double h = cross(posrel, velrel);
+        double r_rel = posrel.norm();
+        double D = (r_rel - posrel.x())/posrel.y();
+
+        double factor = mu_inv*mu_inv*abs(pow(h, 3))/2;
+
+        double T_fromAxis = factor*D*(1+D*D / 3);
+
+        double T_new = T_fromAxis + SIGN*T;
+
+        double A = (3/(2*factor)) * T_new;
+        double B = cbrt(A + sqrt(1+A*A));
+
+        double nu_new = 2*atan(B - 1/B);
+
+        double r_new = h*h*mu_inv/(1+cos(nu_new));
+
+        double cosv = cos(nu_new);
+        double sinv = sin(nu_new);
+
+        double vfactor = sqrt(1/(mu_inv * r_rel * (1+cosv)));
+
+        Vector2d TRYPOS(r_new * cosv, r_new * sinv);
+        Vector2d TRYVEL(vfactor * sinv * (sinv - 1 - cosv), vfactor * cosv * (sinv + 1 + cosv));
+
+        return {rotate(TRYPOS, omega), SIGN*rotate(TRYVEL, omega)};
+    }
+
+    tuple<Vector2d, Vector2d> outerBinaryOnCOMForT(double T, Vector2d &innerCOM, Vector2d &innerCOMvel, nat i) {
+
+        // EDGE CASES:
+        // EPSILON = 0, ECC = 1: seperated case
+        // ECC = 0: seperated case
+        // r cross v = 0: well done (?)
+        // r_vec = 0_vec: ha
+        // E0top = pm * E0bottom: never
+
+        double M = bodyfold.massList[0] + bodyfold.massList[1] + bodyfold.massList[2];
+        double M_inv = 1/M;
+
+        double mu = G*M;
+        double mu_inv = G_inv * M_inv;
+
+
+        Vector2d posrel = bodyfold.posList[i] - innerCOM;
+        Vector2d velrel = bodyfold.velList[i] - innerCOMvel;
+
+        double r_rel = posrel.norm();
+        int SIGN = zeroone_negpos(cross(posrel, velrel) >= 0); //BOUNDARY COND
+
+        double epsilon = velrel.squaredNorm()/2 - mu/r_rel;
+
+        Vector2d e = mu_inv * ((epsilon + velrel.squaredNorm()/2)*posrel - velrel.dot(posrel)*velrel);
+        double e_mag = e.norm();
+        double omega = atan2(e.y(), e.x());
+
+        if (e_mag == 0)
+            return outerBinaryOnCOM_CIRCLE(SIGN * T, epsilon, mu_inv, posrel, velrel);
+        if (e_mag == 1)
+            return outerBinaryOnCOM_PARABOLA(T, posrel, velrel, mu_inv, omega, SIGN);
+
+        double sqrt_one_e_squared, cos_E_cosh_H, sin_E_negsinh_H, a, sqrt_2epsilon;
+        if (e_mag > 1) {
+
+            sqrt_one_e_squared = sqrt(e_mag*e_mag - 1);
+            a = mu/(2*epsilon);
+            sqrt_2epsilon = sqrt(2*epsilon);
+            double n = 2*epsilon*mu_inv * sqrt_2epsilon;
+
+            double E0top = SIGN * sqrt_one_e_squared * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel)));
+            double E0bottom = (e_mag*e_mag*r_rel + e.dot(posrel));
+
+            double H0 = atanh(E0top/E0bottom);
+            double sinhH0 = E0top/sqrt(E0bottom*E0bottom - E0top*E0top);
+
+            double M0 = e_mag*sinhH0 - H0;
+
+            double M_true = M0 + SIGN*n*T;
+
+            double H = Kepler::KEPLER(M_true, e_mag);
+
+            cos_E_cosh_H = cosh(H);
+            sin_E_negsinh_H = zeroone_negpos(H <= 0) * sqrt(cos_E_cosh_H*cos_E_cosh_H - 1);
+
+        } else if (e_mag < 1) {
+
+            sqrt_one_e_squared = sqrt(1 - e_mag*e_mag);
+            a = -mu/(2*epsilon);
+            sqrt_2epsilon = sqrt(-2*epsilon);
+            double n = -2*epsilon*mu_inv * sqrt_2epsilon;
+
+
+            double E0top = SIGN * sqrt_one_e_squared * ( zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel))) ;//zeroone_negpos(posrel.dot(velrel) >= 0) * abs(cross(e, posrel))
+            double E0bottom = (e_mag*e_mag*r_rel + e.dot(posrel));
+
+            double E0 = atan2(E0top, E0bottom);
+            double sinE0 = E0top/sqrt(E0top*E0top + E0bottom*E0bottom);
+
+            double M0 = E0 - e_mag*sinE0; // NEG PI TO PI
+
+            double M_true = M0 + SIGN*n*T;
+            int toRange = M_true/(2*M_PI) - (M_true < 0);
+
+            double E = Kepler::KEPLER(M_true - toRange * 2 * M_PI, e_mag);
+
+            cos_E_cosh_H = cos(E);
+            sin_E_negsinh_H = zeroone_negpos(E <= M_PI) * sqrt(1 - cos_E_cosh_H*cos_E_cosh_H);
+
+        }
+
+        double inv_factor = 1/(1 - e_mag*cos_E_cosh_H);
+        double cosv = (cos_E_cosh_H - e_mag) * inv_factor;
+        double sinv = sqrt_one_e_squared * sin_E_negsinh_H * inv_factor;
+
+        double r = a*sqrt_one_e_squared*sqrt_one_e_squared/(1+e_mag*cosv);
+
+        double vfactor = sqrt_2epsilon/sqrt_one_e_squared;
+        double vr = vfactor * e_mag * sinv;
+        double vtheta = vfactor * (1+e_mag*cosv);
+
+        Vector2d TRYPOS(r*cosv, r*sinv);
+        Vector2d TRYVEL(vr*cosv - vtheta*sinv, vr*sinv + vtheta*cosv);
+
+        return {rotate(TRYPOS, omega), SIGN*rotate(TRYVEL, omega)};
+    }
+
+    double binaryApproximationRun(nat i) {
+
+        nat uno = (i+1) % NUM;
+        nat dos = (i+2) % NUM;
+
+        double innerM = bodyfold.massList[uno] + bodyfold.massList[dos];
+        double M = innerM + bodyfold.massList[i];
+
+        Vector2d COM = (bodyfold.massList[0]*bodyfold.posList[0]
+                        + bodyfold.massList[1]*bodyfold.posList[1]
+                        + bodyfold.massList[2]*bodyfold.posList[2]) / M;
+        Vector2d COMvel = (bodyfold.massList[0]*bodyfold.velList[0]
+                        + bodyfold.massList[1]*bodyfold.velList[1]
+                        + bodyfold.massList[2]*bodyfold.velList[2]) / M;
+
+
+        auto [T, innerCOM, innerCOMvel] = innerBinarySpinOnZero(i);
+
+        auto [iNewPos, iNewVel] = outerBinaryOnCOMForT(T, innerCOM, innerCOMvel, i);
+
+        bodyfold.posList[i] = COM + innerM/M * iNewPos;
+        bodyfold.velList[i] = COMvel + innerM/M * iNewVel;
+
+        bodyfold.posList[uno] += COM - bodyfold.massList[i]/M * iNewPos;
+        bodyfold.velList[uno] += COMvel - bodyfold.massList[i]/M * iNewVel;
+        bodyfold.posList[dos] += COM - bodyfold.massList[i]/M * iNewPos;
+        bodyfold.velList[dos] += COMvel - bodyfold.massList[i]/M * iNewVel;
+
+        return T;
+    }
+
 #if HALTCHECK
 
     tuple<int, int> haltCheck() {
@@ -124,11 +396,11 @@ private:
 
     tuple<nat, nat> escapeCheck(const vector<double> &distSquares) {
 
-        if (distSquares.at(0) > ratioSquare * distSquares.at(1))
+        if (distSquares.at(0) > edrSquared * distSquares.at(1))
             return {0, confirmEscape(distSquares, 0)};
-        if (ratioSquare * distSquares.at(0) < distSquares.at(1))
+        if (edrSquared * distSquares.at(0) < distSquares.at(1))
             return {2, confirmEscape(distSquares, 2)};
-        if (ratioSquare * distSquares.at(2) < distSquares.at(1))
+        if (edrSquared * distSquares.at(2) < distSquares.at(1))
             return {1, confirmEscape(distSquares, 1)};
 
         return {-1, -1};
@@ -157,7 +429,7 @@ private:
 
         // This means the approximation will not be good at apoapsis
         // Multiply by eps^2 for no division
-        if (ratioSquare * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
+        if (edrSquared * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
             return 0;
 
         Vector2d binaryCOM = bodyfold.posList[uno]
@@ -251,7 +523,6 @@ private:
 
     //calculates potential energy
     double calcPotential() {
-
         double total = 0;
 
         for (int i = 0; i < NUM; i++)
@@ -268,6 +539,9 @@ private:
 #if VISUALIZE
     bool isWindowOpen() {
         return visuals.isOpen();
+    }
+    bool isSlower() {
+        return visuals.slowDown();
     }
 #endif
 
@@ -300,7 +574,6 @@ public:
         for (long pass = 0; pass*dt < T; pass++) {
 
             doSymplecticIntegrator();
-            //usleep(1);
 
 #if HALTCHECK
             if (pass%haltCheckPerPasses == 0) {
@@ -325,6 +598,56 @@ public:
         }
     }
 
+    void run_vdt() {
+
+        for (long pass = 0; pass*dt < T; pass++) {
+
+            for (int i = 0; i < NUM; i++) {
+
+                int j = (i + 1) % NUM;
+
+                Vector2d relpos = bodyfold.posList[j] - bodyfold.posList[i];
+                Vector2d relvel = bodyfold.velList[j] - bodyfold.velList[i];
+
+                // if both sim-bad condition AND getting worse AND body ratio allows it
+                if (relvel.squaredNorm() >= RsquaredConst * relpos.squaredNorm()
+                    && relpos.dot(relvel) <= 0)
+
+                    if (sdrSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
+                        cout << "---------------------------------" << endl;
+                        cout << "---------------CUT---------------" << endl;
+                        cout << "---------------------------------" << endl;
+                        double T = binaryApproximationRun((j+1)%NUM);
+                        cout << "Skip: " << T << endl;
+                        break;
+                    }
+            }
+
+            doSymplecticIntegrator();
+
+#if HALTCHECK
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                cout << get<0>(result) << " " << get<1>(result) << endl;
+                cout << pass*dt << endl;
+            }
+#endif
+
+#if VISUALIZE
+            if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/30) == 0)) {
+                visuals.visualizationLoop(getDrawInfo());
+                if (!isWindowOpen())
+                    break;
+            }
+#endif
+#if COMPARE_QUANTS
+            if (pass%comparePerPasses == 0) {
+                compare(pass);
+            }
+#endif
+        }
+    }
+
     //calculates important quantities
     Quantities quantities() {
 
@@ -333,7 +656,7 @@ public:
 
         double pot = calcPotential();
 
-        return {mom.x(), mom.y(), kin, pot};
+        return {mom.x(), mom.y(), kin, pot, bodyfold.sumAngularMomentum()};
     };
 
 #if COMPARE_QUANTS

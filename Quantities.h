@@ -8,16 +8,22 @@
 using namespace std;
 using namespace Eigen;
 
-#define SIZE 5
+#define SIZE 6
 
-static const array<string, SIZE> names = {"Momentum X", "Momentum Y", "Total Energy", "Kinetic Energy", "Potential Energy"};
-static const array<string, SIZE> namesWithColons = {"Momentum X: ", "Momentum Y: ", "Total Energy: ", "Kinetic Energy: ", "Potential Energy: "};
+static const array<string, SIZE> names = {"Momentum X", "Momentum Y", "Total Energy", "Kinetic Energy", "Potential Energy", "Angular Momentum"};
+static const array<string, SIZE> namesWithColons = {"Momentum X: ", "Momentum Y: ", "Total Energy: ", "Kinetic Energy: ", "Potential Energy: ", "Angular Momentum: "};
 
 
 class Quantities {
 
 private:
     constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10;
+
+    static double deviation(double x, double y) {
+        if (y == 0)
+            return x;
+        return (x-y)/y;
+    }
 
 public:
 
@@ -27,8 +33,9 @@ public:
     Quantities (double xMomentum,
                 double yMomentum,
                 double kineticEnergy,
-                double potentialEnergy):
-                quants{xMomentum,yMomentum,kineticEnergy + potentialEnergy,kineticEnergy,potentialEnergy}
+                double potentialEnergy,
+                double angularMomentum):
+                quants{xMomentum,yMomentum,kineticEnergy + potentialEnergy,kineticEnergy,potentialEnergy, angularMomentum}
     {
     }
 
@@ -43,16 +50,13 @@ public:
         return ss.str();
     }
 
-    static double deviation(double x, double y) {
-        if (y == 0)
-            return x;
-        return (x-y)/y;
-    }
-
     static void compare(Quantities now, Quantities init) {
 
         // kinetic energy and potential energy aren't supposed to be conserved, so I don't print them
-        for (int i = 0; i < SIZE - 2; i++) {
+        for (int i = 0; i < SIZE; i++) {
+
+            if (i == 3 || i == 4)
+                continue;
 
             cout << namesWithColons.at(i);
             // for momentum:

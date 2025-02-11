@@ -9,6 +9,7 @@ add_executable(MINREP
         Visualizer.h
         Quantities.h
         Bodyfold.h
+        Kepler.h
 )
 
 #remove flag
@@ -30,7 +31,6 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 include_directories("include/eigen-3.4.0")
 
-#set(SFML_DIR "include/SFML-2.6.1/lib/cmake/SFML")
 
 find_package(SFML COMPONENTS graphics window REQUIRED)
 

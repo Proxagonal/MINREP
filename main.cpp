@@ -17,26 +17,28 @@ std::chrono::steady_clock::time_point now() {
 int main() {
 
     string str = R"(Body #0:
-Mass: 1.1600618595979293
-Position: 0.36038474999776327  3.5821072994031136
-Velocity: -2.8062766438503832 -2.6202876145170131
+Body #0:
+Mass: 0.90704438489622008
+Position:  1.6388830645546371 0.42972882487328068
+Velocity:  -3.959124808375674 -3.0657976465334444
 Body #1:
-Mass: 1.8601666276960023
-Position:  0.4150758999952302 -3.6443884492883001
-Velocity: 2.3067726706446088 0.2191368503792277
+Mass: 0.93572481515213402
+Position: -9.1641637119979329 -4.2687175641535875
+Velocity: 2.8559339149198752  1.822407452468839
 Body #2:
-Mass: 0.77953752828539402
-Position: -1.5267756807077184  3.3657182900134019
-Velocity: -1.3283863829886773  3.3764438161090835)";
-    initialData init = Bodyfold::stringToInitialData(str);
+Mass: 1.9156592834675787
+Position: 3.7003426315958112 1.8816299261214242
+Velocity: 0.47959138654987932 0.56144778625563552
+)";
+    //initialData init = Bodyfold::stringToInitialData(str);
+    //init = Bodyfold::transformToCOMSystem(init);
 
-    Solver solver(5000, pow(10, -4)); //000
-
-    //Solver solver(400000, pow(10, -3));
+    initialData init = Bodyfold::generateRandomCOM();
+    Solver solver(400000, pow(10, -4), init);
 
     auto start = now();
 
-    solver.run();
+    solver.run_vdt();
 
     auto end = now();
 

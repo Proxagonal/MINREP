@@ -23,7 +23,7 @@ private:
     const vector<sf::Color> colors = {sf::Color(255, 50, 50),
                                       sf::Color(50, 255, 50),
                                       sf::Color(50, 50, 255)};
-    static constexpr int wSkips = 1000/10;
+    static constexpr int wSkips = 1000/100;
     int wCount = 0;
 
     sf::RenderWindow window;
@@ -80,10 +80,16 @@ public:
         view.setSize(-scale, scale * winY/winX);
 
         window.setView(view);
+
+        auto pos = sf::Vector2i(1000,0);
+        window.setPosition(pos);
     }
 
     bool isOpen() {
         return window.isOpen();
+    }
+    bool slowDown() {
+        return sf::Keyboard::isKeyPressed(sf::Keyboard::S);
     }
 
     void visualizationLoop(const array<Vector2d, NUM> &posList) {

@@ -1,4 +1,5 @@
 cmake-build-debug/
+cmake-build-debug_wsl/
 cmake-build-release/
 cmake-build-valkyrie/
 cmake-build-release_wsl/
