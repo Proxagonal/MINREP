@@ -12,7 +12,7 @@ using namespace Eigen;
 
 #define VISUALIZE true
 #define COMPARE_QUANTS true
-#define HALTCHECK true
+#define HALTCHECK false
 #define SOW true
 
 #if VISUALIZE
@@ -46,9 +46,9 @@ private:
     Bodyfold bodyfold;
 
 #if SOW
-    const double distanceToLengthPerDt_MAX = 100;
+    const double distanceToLengthPerDt_MAX = 5000;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
-    const double sowingDistanceRatio = 100; //100?
+    const double sowingDistanceRatio = 10; //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
 #endif
 
@@ -176,6 +176,7 @@ private:
             double Mean = e.norm()*sinhH - H;
 
             T = 2 * mu * sqrt(1/(pow(2*epsilon, 3))) * abs(Mean);
+
         } else { //PARABOLIC
             double h = cross(posrel, velrel);
             double D = (r_rel - posrel.x())/posrel.y();
@@ -183,6 +184,7 @@ private:
             double factor = mu_inv*mu_inv*abs(pow(h, 3))/2;
 
             T = 2 * abs(factor*D*(1+D*D / 3));
+
         }
 
         Vector2d ehat = e/e_mag;
@@ -319,18 +321,17 @@ private:
 
             cos_E_cosh_H = cos(E);
             sin_E_negsinh_H = zeroone_negpos(E <= M_PI) * sqrt(1 - cos_E_cosh_H*cos_E_cosh_H);
-
         }
 
         double inv_factor = 1/(1 - e_mag*cos_E_cosh_H);
         double cosv = (cos_E_cosh_H - e_mag) * inv_factor;
         double sinv = sqrt_one_e_squared * sin_E_negsinh_H * inv_factor;
 
-        double r = a*sqrt_one_e_squared*sqrt_one_e_squared/(1+e_mag*cosv);
+        double r = a*sqrt_one_e_squared*sqrt_one_e_squared/(1 + e_mag*cosv);
 
         double vfactor = sqrt_2epsilon/sqrt_one_e_squared;
         double vr = vfactor * e_mag * sinv;
-        double vtheta = vfactor * (1+e_mag*cosv);
+        double vtheta = vfactor * (1 + e_mag*cosv);
 
         Vector2d TRYPOS(r*cosv, r*sinv);
         Vector2d TRYVEL(vr*cosv - vtheta*sinv, vr*sinv + vtheta*cosv);
@@ -598,6 +599,7 @@ public:
 
                     if (sdrSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
                         tSkipped += binaryApproximationRun((j+1)%NUM);
+                        cout << "-----------------" << " CUT " << "-----------------" << endl;
                         break;
                     }
             }

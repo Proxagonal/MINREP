@@ -4,12 +4,13 @@ project(MINREP)
 set(CMAKE_CXX_STANDARD 23)
 
 add_executable(MINREP
-        main.cpp
-        Solver.h
-        Visualizer.h
-        Quantities.h
-        Bodyfold.h
-        Kepler.h
+        #main.cpp
+        #Solver.h
+        #Visualizer.h
+        #Quantities.h
+        #Bodyfold.h
+        #Kepler.h
+        ParabolicCircularTester.cpp
 )
 
 #remove flag
@@ -17,7 +18,6 @@ add_executable(MINREP
 
 #add flag
 #set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -FLAG")
-
 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
