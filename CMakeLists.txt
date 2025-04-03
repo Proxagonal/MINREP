@@ -4,13 +4,12 @@ project(MINREP)
 set(CMAKE_CXX_STANDARD 23)
 
 add_executable(MINREP
-        #main.cpp
+        main.cpp
         #Solver.h
         #Visualizer.h
         #Quantities.h
         #Bodyfold.h
         #Kepler.h
-        ParabolicCircularTester.cpp
 )
 
 #remove flag
