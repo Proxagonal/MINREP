@@ -204,21 +204,27 @@ private:
         return {T, COM, COMvel};
     }
 
-    tuple<Vector2d, Vector2d> outerBinaryOnCOM_CIRCLE(double T, double epsilon, double mu_inv, Vector2d &posrel, Vector2d &velrel) {
+    tuple<Vector2d, Vector2d> outerBinaryOnCOM_CIRCLE(double T, double epsilon, double mu_inv, int SIGN, Vector2d &posrel, Vector2d &velrel) {
 
         double n = -2*epsilon*mu_inv * sqrt(-2*epsilon);
-        double theta = n*T;
+        double theta = SIGN*n*T;
 
         return {rotate(posrel, theta), rotate(velrel, theta)};
     }
 
-    tuple<Vector2d, Vector2d> outerBinaryOnCOM_PARABOLA(double T, Vector2d &posrel, Vector2d &velrel, double mu_inv, double omega, int SIGN) {
+    tuple<Vector2d, Vector2d> outerBinaryOnCOM_PARABOLA(double T, Vector2d &posrel, Vector2d &velrel, double mu_inv, double omega) {
+
+        Vector2d posrelAxis = rotate(posrel, -omega);
 
         double h = cross(posrel, velrel);
-        double r_rel = posrel.norm();
-        double D = (r_rel - posrel.x())/posrel.y();
+        int SIGN = 2*(h >= 0) - 1;
+        h = abs(h);
 
-        double factor = mu_inv*mu_inv*abs(pow(h, 3))/2;
+        double r_rel = posrel.norm();
+        // x=rcosv, y=rsinv makes it make sense:
+        double D = (r_rel - posrelAxis.x())/posrelAxis.y();
+
+        double factor = mu_inv*mu_inv*pow(h, 3)/2;
 
         double T_fromAxis = factor*D*(1+D*D / 3);
 
@@ -234,10 +240,10 @@ private:
         double cosv = cos(nu_new);
         double sinv = sin(nu_new);
 
-        double vfactor = sqrt(1/(mu_inv * r_rel * (1+cosv)));
+        double vfactor = 1/(h*mu_inv);
 
         Vector2d TRYPOS(r_new * cosv, r_new * sinv);
-        Vector2d TRYVEL(vfactor * sinv * (sinv - 1 - cosv), vfactor * cosv * (sinv + 1 + cosv));
+        Vector2d TRYVEL(-vfactor * sinv, vfactor * (1 + cosv));
 
         return {rotate(TRYPOS, omega), SIGN*rotate(TRYVEL, omega)};
     }
@@ -271,9 +277,9 @@ private:
         double omega = atan2(e.y(), e.x());
 
         if (e_mag == 0)
-            return outerBinaryOnCOM_CIRCLE(SIGN * T, epsilon, mu_inv, posrel, velrel);
+            return outerBinaryOnCOM_CIRCLE(SIGN * T, epsilon, mu_inv, SIGN, posrel, velrel);
         if (e_mag == 1)
-            return outerBinaryOnCOM_PARABOLA(T, posrel, velrel, mu_inv, omega, SIGN);
+            return outerBinaryOnCOM_PARABOLA(T, posrel, velrel, mu_inv, omega);
 
         double sqrt_one_e_squared, cos_E_cosh_H, sin_E_negsinh_H, a, sqrt_2epsilon;
         if (e_mag > 1) {
@@ -359,6 +365,7 @@ private:
 
         auto [iNewPos, iNewVel] = outerBinaryOnCOMForT(T, innerCOM, innerCOMvel, i);
 
+        COM += T*COMvel;
         bodyfold.posList[i] = COM + innerM/M * iNewPos;
         bodyfold.velList[i] = COMvel + innerM/M * iNewVel;
 
