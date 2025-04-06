@@ -46,9 +46,9 @@ private:
     Bodyfold bodyfold;
 
 #if SOW
-    const double distanceToLengthPerDt_MAX = 5000;
+    const double distanceToLengthPerDt_MAX = 500;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
-    const double sowingDistanceRatio = 10; //100?
+    const double sowingDistanceRatio = 200; //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
 #endif
 
@@ -60,7 +60,7 @@ private:
 #endif
 #if COMPARE_QUANTS
     Quantities initialQuants;
-    const int comparePerPasses = 20000;
+    const int comparePerPasses = 2000;
 #endif
 
 #if SOW
