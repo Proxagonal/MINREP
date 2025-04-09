@@ -10,8 +10,8 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE true
-#define COMPARE_QUANTS true
+#define VISUALIZE false
+#define COMPARE_QUANTS false
 #define HALTCHECK false
 #define SOW true
 
@@ -31,10 +31,13 @@ typedef uint_fast8_t nat;
 
 class Solver {
 
-private:
-
+public:
     const int T;
     const double dt;
+    const int EACheckPerPasses = 1/dt;
+    double time = 0;
+    double EAMax = 0;
+
 
 
 #if HALTCHECK
@@ -46,9 +49,9 @@ private:
     Bodyfold bodyfold;
 
 #if SOW
-    const double distanceToLengthPerDt_MAX = 500;
+    const double distanceToLengthPerDt_MAX;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
-    const double sowingDistanceRatio = 200; //100?
+    const double sowingDistanceRatio; //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
 #endif
 
@@ -561,9 +564,8 @@ private:
 #endif
 
 
-public:
 
-    Solver(int givenT, double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}
+    Solver(int givenT, double givenDt, double R, double c, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}, distanceToLengthPerDt_MAX{c}, sowingDistanceRatio{R}
 #if VISUALIZE
     , visuals{800, 800, getSystemRadius()}
 #endif
@@ -572,7 +574,7 @@ public:
 #endif
     {
         updateAccelerations();
-        dumpSystemStateString();
+        //dumpSystemStateString();
 
 #if HALTCHECK
         int i, j, k;
@@ -637,6 +639,75 @@ public:
         }
     }
 
+    bool run_TSPDT(double initialEnergy, double divMax) {
+
+        double tSkipped = 0;
+        double EA;
+
+        long pass;
+
+        for (pass = 0; pass*dt + tSkipped < T; pass++) {
+
+            for (int i = 0; i < NUM; i++) {
+
+                int j = (i + 1) % NUM;
+
+                Vector2d relpos = bodyfold.posList[j] - bodyfold.posList[i];
+                Vector2d relvel = bodyfold.velList[j] - bodyfold.velList[i];
+
+                // if both sim-bad condition AND getting worse AND body ratio allows it
+                if (relvel.squaredNorm() >= RsquaredConst * relpos.squaredNorm()
+                    && relpos.dot(relvel) <= 0)
+
+                    if (sdrSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
+                        tSkipped += binaryApproximationRun((j+1)%NUM);
+                        //cout << "-----------------" << " CUT " << "-----------------" << endl;
+                        break;
+                    }
+            }
+
+
+            if (pass%EACheckPerPasses == 0) {
+                EA = abs((getEnergy() - initialEnergy)/initialEnergy);
+                EAMax = max(EA, EAMax);
+                if (EAMax > divMax) {
+                    time += pass*dt + tSkipped;
+                    return false;
+                }
+            }
+
+            doSymplecticIntegrator();
+        }
+
+        time += pass*dt + tSkipped;
+        return abs((getEnergy() - initialEnergy)/initialEnergy) <= divMax;
+    }
+
+    bool run_clean_butcheckEA(double initialEnergy, double divMax) {
+
+        double EA;
+
+        long pass;
+
+        for (pass = 0; pass*dt < T; pass++) {
+
+            if (pass%EACheckPerPasses == 0) {
+                EA = abs((getEnergy() - initialEnergy)/initialEnergy);
+                EAMax = max(EA, EAMax);
+                if (EAMax > divMax) {
+                    time += pass*dt;
+                    return false;
+                }
+            }
+
+            doSymplecticIntegrator();
+
+        }
+
+        time += pass*dt;
+        return abs((getEnergy() - initialEnergy)/initialEnergy) <= divMax;
+    }
+
     //calculates important quantities
     Quantities quantities() {
 
@@ -686,6 +757,39 @@ public:
 
         cout << txt;
 
+    }
+
+    //calculates important quantities
+    static Quantities calcQuantities(const initialData &init) {
+
+        Bodyfold bodyfold{init};
+
+        Vector2d mom = bodyfold.sumMomentum();
+        double kin = bodyfold.sumKineticEnergy();
+        double ang = bodyfold.sumAngularMomentum();
+
+        double pot = calcPotential(bodyfold);
+
+        return {mom.x(), mom.y(), kin, pot, ang};
+    };
+
+    static double calcPotential(const Bodyfold &bodyfold) {
+
+        double total = 0;
+
+        for (int i = 0; i < NUM; i++)
+            for (int j = i + 1; j < NUM; j++)
+            {
+                if (i != j)
+                    total += ((double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
+
+            }
+
+        return total;
+    }
+
+    double getEnergy() {
+        return bodyfold.sumKineticEnergy() + calcPotential();
     }
 
 };

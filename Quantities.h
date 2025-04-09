@@ -67,6 +67,10 @@ public:
         }
     }
 
+    double E() {
+        return quants.at(2);
+    }
+
 };
 
 #endif //MINREP_QUANTITIES_H

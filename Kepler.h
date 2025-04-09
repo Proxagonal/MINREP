@@ -113,12 +113,15 @@ static double keplerInitial(double M, double e) {
             return hyperbolicTaylor(M, e);
         return 3.3/M + asinh(M/e);
     }
-    return -1;
+    throw std::out_of_range("Invalid e=1");
 }
 
 namespace Kepler {
 
     static double KEPLER(double M, double e) {
+
+        if (M < 0)
+            return -KEPLER(-M, e);
 
         double params[2] = {M, e};
 
