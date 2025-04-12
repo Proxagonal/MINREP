@@ -11,8 +11,8 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS true
-#define HALTCHECK false
+#define COMPARE_QUANTS false
+#define HALTCHECK true
 #define SOW true
 
 #if VISUALIZE
@@ -46,9 +46,9 @@ private:
     Bodyfold bodyfold;
 
 #if SOW
-    const double distanceToLengthPerDt_MAX = 500;
+    const double distanceToLengthPerDt_MAX = sqrt(10);
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
-    const double sowingDistanceRatio = 200; //100?
+    const double sowingDistanceRatio = sqrt(1000); //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
 #endif
 
