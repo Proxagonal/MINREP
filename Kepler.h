@@ -113,6 +113,7 @@ static double keplerInitial(double M, double e) {
             return hyperbolicTaylor(M, e);
         return 3.3/M + asinh(M/e);
     }
+    cout << std::fixed << "HEYO HEYO HEYO INVALID " << e << ", " << M << endl;
     throw std::out_of_range("Invalid e=1");
 }
 
@@ -142,8 +143,10 @@ namespace Kepler {
             prevdist = dist;
 
             iter++;
-            if (newton_iterate(&vstate, &fdf, &root) != 0)
+            if (newton_iterate(&vstate, &fdf, &root) != 0) {
+                cout << std::fixed << "HEYO HEYO HEYO INF " << e << ", " << M << ": " << root << ", delta=" << dist << endl;
                 throw std::out_of_range("Infinity or 1/0 " + std::to_string(e) + ", " + std::to_string(M));
+            }
             dist = std::abs(vstate.f);
 
             if (prevdist <= dist) {
@@ -157,6 +160,7 @@ namespace Kepler {
             std::ostringstream out;
             out.precision(20);
             out << std::fixed << "Catastrophic Convergence " << e << ", " << M << ": " << root << ", delta=" << dist;
+            cout << std::fixed << "HEYO HEYO HEYO CC " << e << ", " << M << ": " << root << ", delta=" << dist << endl;
             throw std::out_of_range(out.str());
         }
 
