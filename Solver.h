@@ -11,7 +11,7 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS false
+#define COMPARE_QUANTS true
 #define HALTCHECK true
 #define SOW true
 
@@ -38,7 +38,7 @@ private:
 
 
 #if HALTCHECK
-    static const int haltCheckPerPasses = 20000;
+    static const int haltCheckPerPasses = 200000;
     static const int escapeDistanceRatio = 10;
     static const int edrSquared = escapeDistanceRatio*escapeDistanceRatio;
 #endif
@@ -46,9 +46,9 @@ private:
     Bodyfold bodyfold;
 
 #if SOW
-    const double distanceToLengthPerDt_MAX = sqrt(10);
+    const double distanceToLengthPerDt_MAX = 2.8;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
-    const double sowingDistanceRatio = sqrt(1000); //100?
+    const double sowingDistanceRatio = pow(10, 2.2); //100?
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
 #endif
 
@@ -60,7 +60,7 @@ private:
 #endif
 #if COMPARE_QUANTS
     Quantities initialQuants;
-    const int comparePerPasses = 2000;
+    const int comparePerPasses = 200000;
 #endif
 
 #if SOW
