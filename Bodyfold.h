@@ -31,7 +31,7 @@ private:
     }
 
     static Vector2d randomOnRadius(double r) {
-        return toCartesian(r * sqrt(rand01()), M_2_PI * rand01());
+        return toCartesian(r * sqrt(rand01()), 2 * M_PI * rand01());
     }
 
     static double rand01() {
