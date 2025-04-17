@@ -11,7 +11,7 @@
 #include <algorithm>
 
 
-#define SAMPLE 120000
+#define SAMPLE 80000
 #define COMPS 12
 #define PATHSTART "/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
 
@@ -265,7 +265,7 @@ const double MAX_ENERGY_DEVIATION = pow(10, -5); //6?---------------------------
 
 int main() {
 
-    vector<int> STOPS = {0, 5, 20, 100, 1000, 10000, 40000, 80000};
+    vector<int> STOPS = {};//{0, 5, 20, 100, 1000, 10000, 40000, 80000};
 
 
 
@@ -298,14 +298,16 @@ int main() {
     pthread_mutex_init(&workers->mutex, &attr);
 
 
-    vector<double> cv = {2.3, 2.5, 2.8, sqrt(10)};
+    //vector<double> cv = {2.3, 2.5, 2.8, sqrt(10)};
+//
+    //vector<tuple<double, double>> CRList;
+//
+    //for (double c : cv)
+    //    for (double R : expArray(10, 0, 2.6, 0.2))
+    //        CRList.emplace_back(c, R);
+    //printvec(CRList);
 
-    vector<tuple<double, double>> CRList;
-
-    for (double c : cv)
-        for (double R : expArray(10, 0, 2.6, 0.2))
-            CRList.emplace_back(c, R);
-    printvec(CRList);
+    vector<tuple<double, double>> CRList = {{-1.0, -1.0}, {2.8, pow(10, 2.2)}};
 
     for (auto &[c, R] : CRList) {
 
