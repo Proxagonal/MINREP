@@ -14,6 +14,47 @@ std::chrono::steady_clock::time_point now() {
     return std::chrono::steady_clock::now();
 }
 
+
+#define M1 17.5
+#define M2 15
+#define M3 12.5
+#define R12 5
+#define R12_3 100
+#define V3 5
+
+#define PHASESAMPLE 100
+#define SHOOTSAMPLE 100
+
+#define SHOOTMIN (M_PI - atan(0.5*R12 / R12_3))
+#define SHOOTMAX (M_PI + atan(0.5*R12 / R12_3))
+
+
+static Vector2d toCartesian(double rad, double theta) {
+    return {rad*cos(theta), rad*sin(theta)};
+}
+
+inline static Vector2d rotate(Vector2d v, double angle) {
+    double cosA = cos(angle);
+    double sinA = sin(angle);
+
+    return {v.x() * cosA - v.y() * sinA, v.x() * sinA + v.y() * cosA};
+}
+
+static initialData ergodicScatterRing(double innerPhase, double shootAngle) {
+    double v12 = sqrt(G * (M1 + M2) / R12);
+
+    initialData circularInit{{M1, {0, 0}, {0, 0}}, {M2, rotate({0, R12}, innerPhase), rotate({-v12, 0}, innerPhase)}};
+    auto centered = Bodyfold::transformToCOMSystem(circularInit);
+    auto &b1 = centered[0];
+    auto &b2 = centered[1];
+
+    initialData init{b1, b2, {M3, {R12_3, 0}, toCartesian(V3, shootAngle)}};
+    init = Bodyfold::transformToCOMSystem(init);
+
+    return init;
+}
+
+
 int main() {
 
     string str = R"(
@@ -35,7 +76,12 @@ Velocity:   0.6234390735273081 -0.36258526040031658
 
     bool RAND = false;
     init = RAND ? Bodyfold::generateRandomCOM() : init;
-    Solver solver(400000, pow(10, -4), init);
+
+
+
+
+    init = ergodicScatterRing(1.6964600329384885, 3.1615884884849295);
+    Solver solver(400000, pow(10, -5), init);
 
     auto start = now();
 

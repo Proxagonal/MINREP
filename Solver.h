@@ -10,9 +10,9 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE false
-#define COMPARE_QUANTS false
-#define HALTCHECK false
+#define VISUALIZE true
+#define COMPARE_QUANTS true
+#define HALTCHECK true
 #define SOW true
 
 #if VISUALIZE
@@ -41,7 +41,7 @@ public:
 
 
 #if HALTCHECK
-    static const int haltCheckPerPasses = 20000;
+    const int haltCheckPerPasses = 1/dt;
     static const int escapeDistanceRatio = 10;
     static const int edrSquared = escapeDistanceRatio*escapeDistanceRatio;
 #endif
@@ -49,9 +49,9 @@ public:
     Bodyfold bodyfold;
 
 #if SOW
-    const double distanceToLengthPerDt_MAX;
+    const double distanceToLengthPerDt_MAX = 2.8;
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
-    const double sowingDistanceRatio; //100?
+    const double sowingDistanceRatio = pow(10, 2.2);
     const double sdrSquared = sowingDistanceRatio*sowingDistanceRatio;
 #endif
 
@@ -59,7 +59,7 @@ public:
 
 #if VISUALIZE
     Visualizer visuals;
-    const int framePerPasses = 100;
+    const int framePerPasses = 1000;
 #endif
 #if COMPARE_QUANTS
     Quantities initialQuants;
@@ -565,7 +565,7 @@ public:
 
 
 
-    Solver(int givenT, double givenDt, double R, double c, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}, distanceToLengthPerDt_MAX{c}, sowingDistanceRatio{R}
+    Solver(int givenT, double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}
 #if VISUALIZE
     , visuals{800, 800, getSystemRadius()}
 #endif
@@ -639,7 +639,7 @@ public:
         }
     }
 
-    bool run_TSPDT(double initialEnergy, double divMax) {
+    tuple<int, tuple<int, int>> run_TSPDT(double initialEnergy, double divMax) {
 
         double tSkipped = 0;
         double EA;
@@ -661,26 +661,48 @@ public:
 
                     if (sdrSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
                         tSkipped += binaryApproximationRun((j+1)%NUM);
-                        //cout << "-----------------" << " CUT " << "-----------------" << endl;
                         break;
                     }
             }
 
+            doSymplecticIntegrator();
 
             if (pass%EACheckPerPasses == 0) {
                 EA = abs((getEnergy() - initialEnergy)/initialEnergy);
                 EAMax = max(EA, EAMax);
                 if (EAMax > divMax) {
                     time += pass*dt + tSkipped;
-                    return false;
+                    return {-1, {0, 0}};
                 }
             }
 
-            doSymplecticIntegrator();
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                if (result != make_tuple(-1, -1)) {
+                    time += pass*dt + tSkipped;
+                    return {1, result};
+                }
+            }
         }
 
         time += pass*dt + tSkipped;
-        return abs((getEnergy() - initialEnergy)/initialEnergy) <= divMax;
+
+        EA = abs((getEnergy() - initialEnergy)/initialEnergy);
+        EAMax = max(EA, EAMax);
+        if (EAMax > divMax) {
+            time += pass*dt + tSkipped;
+            return {-1, {0, 0}};
+        }
+
+        if (pass%haltCheckPerPasses == 0) {
+            tuple<int, int> result = haltCheck();
+            if (result != make_tuple(-1, -1)) {
+                time += pass*dt + tSkipped;
+                return {1, result};
+            }
+        }
+
+        return {0, {0, 0}};
     }
 
     bool run_clean_butcheckEA(double initialEnergy, double divMax) {
