@@ -4,9 +4,9 @@ project(MINREP)
 set(CMAKE_CXX_STANDARD 23)
 
 add_executable(MINREP
-        main.cpp
+        #main.cpp
         #TestSowProgressiveDtTime.cpp
-        #Y_TRUE_APPLICATION.cpp
+        Y_TRUE_APPLICATION.cpp
         #Solver.h
         #Visualizer.h
         #Quantities.h

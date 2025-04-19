@@ -20,8 +20,8 @@
 #define R12_3 100
 #define V3 5
 
-#define PHASESAMPLE 100
-#define SHOOTSAMPLE 100
+#define PHASESAMPLE 150
+#define SHOOTSAMPLE 150
 
 #define SHOOTMIN (M_PI - atan(0.5*R12 / R12_3))
 #define SHOOTMAX (M_PI + atan(0.5*R12 / R12_3))
@@ -221,7 +221,7 @@ int main() {
 
     int threadCounter = 0;
 
-    int T = pow(10, 7);
+    int T = pow(10, 5);
 
     int powStart = -3;
     int powJump = -1;
