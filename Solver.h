@@ -92,13 +92,16 @@ public:
 
     void doSymplecticIntegrator() {
 
-        for (nat p = 0; p < ORDER; p++) {
+        for (nat p = 0; p < ORDER-1; p++) {
             updateAccelerations();
             for (nat i = 0; i < NUM; i++) {
                 bodyfold.velList[i] += C[p] * dt * bodyfold.accList[i];
                 bodyfold.posList[i] += D[p] * dt * bodyfold.velList[i];
             }
         }
+        updateAccelerations();
+        for (nat i = 0; i < NUM; i++)
+            bodyfold.velList[i] += C[3] * dt * bodyfold.accList[i];
     }
 
     void updateAccelerations() {
