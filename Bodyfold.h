@@ -14,6 +14,8 @@ using namespace Eigen;
 typedef vector<tuple<double, Vector2d, Vector2d>> initialData;
 typedef array<Vector2d, NUM> vData;
 typedef array<double, NUM> Data;
+typedef Vector<long double, 2> Vector2ld;
+
 
 struct Bodyfold {
 
@@ -170,6 +172,25 @@ public:
         }
 
         return transformToCOMSystem(list);
+    }
+
+    // Symmetries: rotation, scale, mass sum, COM, p_COM
+    static initialData generateRandomNONCOM() {
+
+        initialData list;
+
+        Vector2d pos;
+        Vector2d vel;
+        double mass;
+
+        for (int i = 0; i < NUM; i++) {
+            pos = randomOnRadius(systemRadius);
+            vel = randomOnRadius(velocityMax);
+            mass = massMin + (massMax - massMin) * rand01();
+            list.emplace_back(mass, pos, vel);
+        }
+
+        return list;
     }
 
     static initialData transformToCOMSystem(initialData &init) {
