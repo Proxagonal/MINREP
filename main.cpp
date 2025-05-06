@@ -18,24 +18,24 @@ int main() {
 
     string str = R"(
 Body #0:
-Mass: 1.242946611213134
-Position: 20 -60
-Velocity:  0 0
+Mass: 1.636771220589853
+Position: 40 -60
+Velocity: 2.1 0.8
 Body #1:
 Mass: 1.557730835697107
 Position: 20 -55
 Velocity: -3 0
 Body #2:
-Mass: 1.636771220589853
-Position: 40 -60
-Velocity: 2.1 0.8
+Mass: 1.242946611213134
+Position: 20 -60
+Velocity:  0 0
 )";
     initialData init = Bodyfold::stringToInitialData(str);
     init = Bodyfold::transformToCOMSystem(init);
 
     bool RAND = false;
     init = RAND ? Bodyfold::generateRandomCOM() : init;
-    Solver solver(1000000, pow(10, -4), init);
+    Solver solver(1000000, pow(10, -3), init);
 
     auto start = now();
 

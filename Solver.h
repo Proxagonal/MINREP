@@ -69,7 +69,7 @@ private:
     Visualizer visuals;
 
     const int savePosPerPasses = (1/dt) / 100;
-    const double secondPerFrame = 0.5;
+    const double secondPerFrame = 0.06;
 
     static constexpr double t_frame_approx = 0.012412223522235222087;
     static constexpr double t_symp_approx = 1.8 * pow(10, -7);
