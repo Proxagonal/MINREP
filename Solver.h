@@ -69,7 +69,7 @@ private:
     Visualizer visuals;
 
     const int savePosPerPasses = (1/dt) / 100;
-    const double secondPerFrame = 1.8;
+    const double secondPerFrame = 0.5;
 
     static constexpr double t_frame_approx = 0.012412223522235222087;
     static constexpr double t_symp_approx = 1.8 * pow(10, -7);
@@ -746,7 +746,7 @@ public:
             if (pass%savePosPerPasses == 0)
                 visuals.addToPaths(getDrawInfo());
 
-            if (pass%framePerPasses == 0 || (isSlower() && pass%(framePerPasses/visuals.slowerBy) == 0)) {
+            if (pass%framePerPasses == 0 || (isSlower() && pass%(1 + framePerPasses/visuals.slowerBy) == 0)) {
                 visuals.visualizationLoop(getDrawInfo());
                 if (!isWindowOpen())
                     break;
