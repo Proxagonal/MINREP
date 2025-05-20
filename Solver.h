@@ -25,9 +25,9 @@ static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
 
 static const long double LD_PI = 3.141592653589793238462643383279L;
-static const long double LD_G = 4*LD_PI*LD_PI;
+static const long double LD_G = 1;//4*LD_PI*LD_PI;
 static const long double LD_G_inv = 1/LD_G;
-static const double G = 4*LD_PI*LD_PI;
+static const double G = LD_G;
 static const double G_inv = 1/LD_G;
 
 
@@ -35,10 +35,36 @@ typedef uint_fast8_t nat;
 
 class Solver {
 
-private:
+public:
 
     const int T;
     const double dt;
+    const int EACheckPerPasses = 1/dt;
+    double time = 0;
+    double EAMax = 0;
+
+
+    int SEEStatus = 0;
+    double SEEstart;
+    nat SEEbody;
+    double SEEAARatio;
+
+    int SEECheckPer = 1/(100*dt);
+    int SEEratio = 10;
+    int SEEDone = 8;
+    // S.E.E: (body, t, delta_t, a_big/a_small)
+    vector<tuple<nat, double, double, double>> SEEInfo;
+
+    tuple<nat, double, double, double, double> SKIPtemp = make_tuple(0, 0, 0, 0, 0);
+    // SKIP: (body, delta_t, a_big/a_small, EA_B, EA_A)
+    vector<tuple<nat, double, double, double, double>> SKIPInfo;
+
+    long sowCount = 0;
+    tuple<nat, double, double, double, double, double, double> SOWtemp = make_tuple(0, 0, 0, 0, 0, 0, 0);
+    // SOW: (body, delta_t, r^2, v*dt ^ 2, R, EA_B, EA_A)
+    vector<tuple<nat, double, double, double, double, double, double>> SOWInfo;
+
+
 
     Bodyfold bodyfold;
 
@@ -58,7 +84,7 @@ private:
 
 #if SKIP
     const int skipCheckPerPasses = 1/dt;
-    const double skippingDistanceApoapsisRatio = 500;
+    const double skippingDistanceApoapsisRatio = 200;
     const double minPassesForSkip = pow(10, 7); // About 1 real sec
 
     const double minTimeForSkip = minPassesForSkip * dt;
@@ -69,7 +95,7 @@ private:
     Visualizer visuals;
 
     const int savePosPerPasses = (1/dt) / 100;
-    const double secondPerFrame = 0.06;
+    const double secondPerFrame = 0.04;
 
     static constexpr double t_frame_approx = 0.012412223522235222087;
     static constexpr double t_symp_approx = 1.8 * pow(10, -7);
@@ -82,9 +108,29 @@ private:
 #endif
 
     //returns initial conditions of system
-    static initialData initialConditions() {
+    //static initialData initialConditions() {
+//
+    //    return Bodyfold::generateRandomCOM();
+    //}
 
-        return Bodyfold::generateRandomCOM();
+    static  initialData initialConditions() {
+
+        initialData list;
+
+        double m = 5;
+        double rad = 20;
+        double speed = -sqrt(m*G/(sqrt(3)*rad));
+
+        Vector2d pos;
+        Vector2d vel;
+
+        for (int i = 0; i < 3; i++) {
+            pos = rad*Vector2d(cos(i*M_PI*2/3), sin(i*M_PI*2/3));
+            vel = speed*Vector2d(-sin(i*M_PI*2/3), cos(i*M_PI*2/3));
+            list.emplace_back(m, pos, vel);
+        }
+
+        return list;
     }
 
     void doSymplecticIntegrator() {
@@ -479,6 +525,8 @@ private:
 
         double ellipseMajor_ud = -mu_ud/epsilon_ud;
 
+        get<2>(SKIPtemp) = (-muWholeSystem/epsilonWholeSystem)/ellipseMajor_ud;
+
         // This means the approximation will not be good at apoapsis
         // Multiply by apo^2 for no division
         return (skip_DARSquared * ellipseMajor_ud * ellipseMajor_ud
@@ -644,10 +692,14 @@ private:
         for (int i = 0; i < NUM; i++)
             for (int j = i + 1; j < NUM; j++)
             {
-                if (i != j)
+                if (i != j) {
+                    cout << (bodyfold.posList[i] - bodyfold.posList[j]).norm() << endl;
                     total += ((double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
 
+                }
+
             }
+        cout << "-----------" << endl;
 
         return total;
     }
@@ -678,8 +730,8 @@ public:
             throw std::domain_error("Infeasable framerate");
 #endif
 
-        updateAccelerations();
         dumpSystemStateString();
+        updateAccelerations();
     }
 
     void run() {
@@ -760,6 +812,238 @@ public:
         }
     }
 
+    bool isExcursion(nat far) {
+
+
+        int uno = (far + 1) % NUM;
+        int dos = (far + 2) % NUM;
+
+        double mu_ud = G*(bodyfold.massList[uno] + bodyfold.massList[dos]);
+        Vector2d velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
+
+
+        double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / (bodyfold.posList[dos] - bodyfold.posList[uno]).norm();
+
+        // This means the binary isn't bound
+        if (epsilon_ud >= 0)
+            return false;
+
+
+        Vector2d innerCOM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) / (bodyfold.massList[uno] + bodyfold.massList[dos]);
+        Vector2d innerCOMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) / (bodyfold.massList[uno] + bodyfold.massList[dos]);
+
+
+        Vector2d deltaPosWholeSystem = bodyfold.posList[far] - innerCOM;
+        Vector2d deltaVelWholeSystem = bodyfold.velList[far] - innerCOMvel;
+
+
+        if (deltaPosWholeSystem.dot(deltaVelWholeSystem) <= 0)
+            return false;
+
+        double ellipseMajor_ud = -mu_ud/epsilon_ud;
+
+        // This means the approximation will not be good at apoapsis
+        // Multiply by apo^2 for no division
+        return (SEEratio * SEEratio * ellipseMajor_ud * ellipseMajor_ud
+                < (bodyfold.posList[far] - innerCOM).squaredNorm());
+
+    }
+/*
+    tuple<int, tuple<int, int>> run_TSPDT(double initialEnergy, double divMax) {
+
+        double EA;
+        long pass;
+
+        long passCanCheck = 0;
+        long double tSkipped = 0;
+
+        for (pass = 0; pass*dt + tSkipped < T; pass++) {
+
+            if (pass % skipCheckPerPasses == 0 && pass >= passCanCheck) {
+                for (nat i = 0; i < NUM; i++) {
+
+                    nat uno = (i+1)%NUM;
+                    nat dos = (i+2)%NUM;
+
+                    double smallDistSquared = (bodyfold.posList[dos] - bodyfold.posList[uno]).squaredNorm();
+                    double bigDistSquared = (bodyfold.posList[i] - bodyfold.posList[dos]).squaredNorm();
+
+                    if (skip_DARSquared*smallDistSquared < bigDistSquared)
+                        if (checkDAR(i)) {
+
+                            auto [tSkip, done] = skipSystem(i);
+
+                            if (done) {
+                                tSkipped += tSkip;
+
+                                get<0>(SKIPtemp) = i;
+                                get<1>(SKIPtemp) = tSkip;
+                                get<3>(SKIPtemp) = EA;
+                                get<4>(SKIPtemp) = abs((getEnergy() - initialEnergy)/initialEnergy);
+                                SKIPInfo.emplace_back(SKIPtemp);
+                            } else
+                                passCanCheck = pass + tSkip/dt;
+                        }
+                }
+            }
+
+            for (nat i = 0; i < NUM; i++) {
+
+                nat j = (i + 1) % NUM;
+
+                Vector2d relpos = bodyfold.posList[j] - bodyfold.posList[i];
+                Vector2d relvel = bodyfold.velList[j] - bodyfold.velList[i];
+
+                // if both sim-bad condition AND getting worse AND body ratio allows it
+                if (relvel.squaredNorm() >= RsquaredConst * relpos.squaredNorm()
+                    && relpos.dot(relvel) <= 0)
+
+                    if (sow_drSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
+
+                        double tSkip = sowSystem((j+1)%NUM);
+
+                        if (sowCount % (long)((pow(10, ceil(log10(sowCount))))/10)) {
+                            get<0>(SOWtemp) = (j+1)%NUM;
+                            get<1>(SOWtemp) = tSkip;
+                            get<2>(SOWtemp) = relpos.squaredNorm();
+                            get<3>(SOWtemp) = relvel.squaredNorm();
+                            get<4>(SOWtemp) = (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm();
+                            get<5>(SOWtemp) = EA;
+                            get<6>(SOWtemp) = abs((getEnergy() - initialEnergy)/initialEnergy);
+                            SOWInfo.emplace_back(SOWtemp);
+                        }
+                        sowCount++;
+
+
+                        tSkipped += tSkip;
+                        break;
+                    }
+            }
+
+            if (pass % SEECheckPer == 0) {
+
+                if (SEEStatus == 0)
+                    for (nat i = 0; i < NUM; i++) {
+                        nat uno = (i+1)%NUM;
+                        nat dos = (i+2)%NUM;
+
+                        double smallDistSquared = (bodyfold.posList[dos] - bodyfold.posList[uno]).squaredNorm();
+                        double bigDistSquared = (bodyfold.posList[i] - bodyfold.posList[dos]).squaredNorm();
+
+                        if ((SEEratio - 1)*(SEEratio - 1)*smallDistSquared < bigDistSquared) {
+
+                            if (SEEStatus = isExcursion(i)) {
+                                SEEstart = pass*dt + tSkipped;
+                                SEEbody = i;
+                            }
+                        }
+                    }
+
+                if (SEEStatus == 1) {
+
+                    nat uno = (SEEbody+1)%NUM;
+                    nat dos = (SEEbody+2)%NUM;
+
+                    Vector2d innerCOM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) / (bodyfold.massList[uno] + bodyfold.massList[dos]);
+                    Vector2d innerCOMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) / (bodyfold.massList[uno] + bodyfold.massList[dos]);
+
+
+                    Vector2d deltaPosWholeSystem = bodyfold.posList[SEEbody] - innerCOM;
+                    Vector2d deltaVelWholeSystem = bodyfold.velList[SEEbody] - innerCOMvel;
+
+
+                    if (deltaPosWholeSystem.dot(deltaVelWholeSystem) <= 0) {
+
+                        double mu_ud = G*(bodyfold.massList[uno] + bodyfold.massList[dos]);
+                        Vector2d velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
+
+
+                        double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / (bodyfold.posList[dos] - bodyfold.posList[uno]).norm();
+
+                        double muWholeSystem = mu_ud + G*bodyfold.massList[SEEbody];
+
+
+                        double epsilonWholeSystem = deltaVelWholeSystem.squaredNorm()/2
+                                                    - muWholeSystem / deltaPosWholeSystem.norm();
+
+                        double ellipseMajor_ud = -mu_ud/epsilon_ud;
+                        double ellipseMajorWholeSystem = -muWholeSystem/epsilonWholeSystem;
+
+                        SEEAARatio = ellipseMajorWholeSystem / ellipseMajor_ud;
+                        SEEStatus = 2;
+                    }
+
+                }
+
+                if (SEEStatus == 2) {
+
+                    // Idea from OY meet: make the time from 1:10 to actual chaos be derived from
+                    // the upper bound, which is 1:10 exactly.
+
+                    THIS IS COMMENTnat uno = (SEEbody+1)%NUM;
+                    nat dos = (SEEbody+2)%NUM;
+
+                    Vector2d innerCOM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) / (bodyfold.massList[uno] + bodyfold.massList[dos]);
+                    Vector2d innerCOMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) / (bodyfold.massList[uno] + bodyfold.massList[dos]);
+
+
+                    Vector2d deltaPosWholeSystem = bodyfold.posList[SEEbody] - innerCOM;
+                    Vector2d deltaVelWholeSystem = bodyfold.velList[SEEbody] - innerCOMvel;
+
+                    double mu_ud = G*(bodyfold.massList[uno] + bodyfold.massList[dos]);
+                    Vector2d velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
+
+
+                    double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / (bodyfold.posList[dos] - bodyfold.posList[uno]).norm();
+
+                    double muWholeSystem = mu_ud + G*bodyfold.massList[SEEbody];
+
+                    double ellipseMajor_ud = -mu_ud/epsilon_ud;
+
+                }
+
+            }
+
+            doSymplecticIntegrator();
+
+            if (pass%EACheckPerPasses == 0) {
+                EA = abs((getEnergy() - initialEnergy)/initialEnergy);
+                EAMax = max(EA, EAMax);
+                if (EAMax > divMax) {
+                    time += pass*dt + tSkipped;
+                    return {-1, {0, 0}};
+                }
+            }
+
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                if (result != make_tuple(-1, -1)) {
+                    time += pass*dt + tSkipped;
+                    return {1, result};
+                }
+            }
+        }
+
+        time += pass*dt + tSkipped;
+
+        EA = abs((getEnergy() - initialEnergy)/initialEnergy);
+        EAMax = max(EA, EAMax);
+        if (EAMax > divMax) {
+            time += pass*dt + tSkipped;
+            return {-1, {0, 0}};
+        }
+
+        if (pass%haltCheckPerPasses == 0) {
+            tuple<int, int> result = haltCheck();
+            if (result != make_tuple(-1, -1)) {
+                time += pass*dt + tSkipped;
+                return {1, result};
+            }
+        }
+
+        return {0, {0, 0}};
+    }*/
+
     //calculates important quantities
     Quantities quantities() {
 
@@ -809,6 +1093,39 @@ public:
 
         cout << txt;
 
+    }
+
+    //calculates important quantities
+    static Quantities calcQuantities(const initialData &init) {
+
+        Bodyfold bodyfold{init};
+
+        Vector2d mom = bodyfold.sumMomentum();
+        double kin = bodyfold.sumKineticEnergy();
+        double ang = bodyfold.sumAngularMomentum();
+
+        double pot = calcPotential(bodyfold);
+
+        return {mom.x(), mom.y(), kin, pot, ang};
+    };
+
+    static double calcPotential(const Bodyfold &bodyfold) {
+
+        double total = 0;
+
+        for (int i = 0; i < NUM; i++)
+            for (int j = i + 1; j < NUM; j++)
+            {
+                if (i != j)
+                    total += ((double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
+
+            }
+
+        return total;
+    }
+
+    double getEnergy() {
+        return bodyfold.sumKineticEnergy() + calcPotential();
     }
 
 };

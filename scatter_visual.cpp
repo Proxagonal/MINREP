@@ -1,0 +1,144 @@
+#include "Solver.h"
+#include <chrono>
+#include <unistd.h>
+#include <iostream>
+
+using namespace std;
+using namespace Eigen;
+
+void printMils(std::chrono::steady_clock::time_point start, std::chrono::steady_clock::time_point end) {
+    cout << (duration_cast<chrono::milliseconds>(end - start)).count() << endl;
+}
+
+std::chrono::steady_clock::time_point now() {
+    return std::chrono::steady_clock::now();
+}
+
+
+#define M1 17.5
+#define M2 15
+#define M3 12.5
+#define R12 5
+#define R12_3 100
+#define V3 0
+
+static Vector2d toCartesian(double rad, double theta) {
+    return {rad*cos(theta), rad*sin(theta)};
+}
+
+inline static Vector2d rotate(Vector2d v, double angle) {
+    double cosA = cos(angle);
+    double sinA = sin(angle);
+
+    return {v.x() * cosA - v.y() * sinA, v.x() * sinA + v.y() * cosA};
+}
+
+static initialData ergodicScatterRing(double innerPhase) {
+    double v12 = sqrt(G * (M1 + M2) / R12);
+
+    initialData circularInit{{M1, {0, 0}, {0, 0}}, {M2, rotate({0, R12}, innerPhase), rotate({-v12, 0}, innerPhase)}};
+    auto centered = Bodyfold::transformToCOMSystem(circularInit);
+    auto &b1 = centered[0];
+    auto &b2 = centered[1];
+
+    initialData init{b1, b2, {M3, {R12_3, 0}, {-V3, 0}}};
+    init = Bodyfold::transformToCOMSystem(init);
+
+    return init;
+}
+
+
+int main() {
+
+    string str = R"(
+Body #0:
+Mass: 1.1312060305229013
+Position: -6.1290020123570965 -3.7586176460972949
+Velocity: 1.2821194313211652 3.0806760752465392
+Body #1:
+Mass: 1.2672158354724949
+Position: 8.8802818673158725 6.6815099962269837
+Velocity:  -1.940599449846065 -2.2870314660504989
+Body #2:
+Mass: 1.6181486907539171
+Position: -2.6697606919199774 -2.6049177980224192
+Velocity:   0.6234390735273081 -0.36258526040031658
+)";
+    initialData init = Bodyfold::stringToInitialData(str);
+
+    init = ergodicScatterRing(M_PI*1.05);
+    Solver solver(400000, pow(10, -3));
+
+    auto start = now();
+
+    solver.run();
+
+    auto end = now();
+
+    solver.dumpSystemStateString();
+
+    printMils(start, end);
+
+    return 0;
+
+
+}
+
+/*
+Body #0:
+Mass: 1.242946611213134
+Position: -0.002053585436350147     1.030396127310835
+Velocity:  2.504552704961396 -3.809217635797198
+Acceleration:  1.697952297765992 0.6611026250358759
+Body #1:
+Mass: 1.557730835697107
+Position: -4.037243659383559 -4.719408180617826
+Velocity: -2.363441768609585  2.466642679997209
+Acceleration: 0.9027176656933865  1.168476996467104
+Body #2:
+Mass: 1.636771220589853
+Position: 3.843842900803226 3.709034102123111
+Velocity: 0.3473795341393515 0.5451518069749963
+Acceleration: -2.148531910905408 -1.614085024478817
+
+insane stabillity
+*/
+
+/*
+string str = "Body #0\n"
+"Mass: 1.538867966551895\n"
+"Position: -11.66812151143027 0.8299329097457022\n"
+"Velocity: 2.321785206421383 -0.5456961395856064\n"
+"Body #1: \n"
+"Mass: 1.777497022581172\n"
+"Position: 7.479134929692112 -0.272405310121516\n"
+"Velocity: 1.523257089996259 -0.3901672367415596\n"
+"Body #2: \n"
+"Mass: 0.766268940166189\n"
+"Position: 6.083449439766614 -1.034829287673587\n"
+"Velocity: -8.196216096280557 2.00096249492199\n";
+
+breaks escape check
+*/
+
+/*
+string str = "Body #0:\n"
+"Mass: 1.390725509697576\n"
+"Position: 6.609606267054577 -2.982757036320367\n"
+"Velocity: -2.898762591259914 -3.721404424492462\n"
+"Body #1:\n"
+"Mass: 1.527654750445846\n"
+"Position: 1.449709406287688 0.4392421898296379\n"
+"Velocity: 2.592529431038656 0.7475692027890037\n"
+"Body #2:\n"
+"Mass: 1.52205015532158\n"
+"Position: -7.494367689559578 2.284540932894901\n"
+"Velocity: 0.04657742780516827 2.649994421677434\n";
+
+breaks escape check a lot (at pow -3)
+ */
+
+
+
+
+
