@@ -25,7 +25,7 @@ static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
 
 static const long double LD_PI = 3.141592653589793238462643383279L;
-static const long double LD_G = 1;//4*LD_PI*LD_PI;
+static const long double LD_G = 4*LD_PI*LD_PI;
 static const long double LD_G_inv = 1/LD_G;
 static const double G = LD_G;
 static const double G_inv = 1/LD_G;
