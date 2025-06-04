@@ -65,7 +65,7 @@ Velocity:  0 1 0.7
 
     bool RAND = false;
     init = RAND ? Bodyfold::generateRandomCOM() : init;
-    Solver solver(1000000, pow(10, -6), init);
+    Solver solver(1000000, pow(10, -3), init);
 
     auto start = now();
 

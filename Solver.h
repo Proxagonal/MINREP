@@ -10,11 +10,11 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE false
+#define VISUALIZE true
 #define COMPARE_QUANTS true
-#define HALTCHECK false
-#define SOW false
-#define SKIP false
+#define HALTCHECK true
+#define SOW true
+#define SKIP true
 
 #if VISUALIZE
 #include <unistd.h>
@@ -50,9 +50,9 @@ private:
 #endif
 
 #if SOW
-    static constexpr double distanceToLengthPerDt_MAX = 400; //FIEN
-    const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX/1000, 2);//FIEN //1/pow(distanceToLengthPerDt_MAX*dt, 2);
-    static constexpr double sowingDistanceRatio = pow(10, 1); //FIEN
+    static constexpr double distanceToLengthPerDt_MAX = 2.8;
+    const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
+    static constexpr double sowingDistanceRatio = pow(10, 2.2);
     static constexpr double sow_drSquared = sowingDistanceRatio*sowingDistanceRatio;
 #endif
 
@@ -79,7 +79,7 @@ private:
 
 #if COMPARE_QUANTS
     Quantities initialQuants;
-    const int comparePerPasses = 20/dt; //FIEN
+    const int comparePerPasses = 1/dt;
 #endif
 
     //returns initial conditions of system
@@ -489,8 +489,8 @@ private:
         if (T < minTimeForSkip)
             return {T, false};
 
-        Vector2ld innerPosRel = (bodyfold.posList[dos] - bodyfold.posList[uno]).cast<long double>();
-        Vector2ld innerVelRel = (bodyfold.velList[dos] - bodyfold.velList[uno]).cast<long double>();
+        VectorDld innerPosRel = (bodyfold.posList[dos] - bodyfold.posList[uno]).cast<long double>();
+        VectorDld innerVelRel = (bodyfold.velList[dos] - bodyfold.velList[uno]).cast<long double>();
 
         auto [IPR_2d, IVR_2d, innerBasis] = toSubspace(innerPosRel, innerVelRel);
 
@@ -757,18 +757,11 @@ public:
         long passCanCheck = 0;
 #endif
 
-#if SOW || SKIP || true //FIEN
+#if SOW || SKIP
         long double tSkipped = 0;
 #endif
 
         for (long pass = 0; pass*dt < T; pass++) {
-
-            if (pass*dt + tSkipped >= 1000) {
-
-                cout << setprecision(17) << "T = " << pass*dt + tSkipped << endl;
-                dumpSystemStateString();
-                return;
-            }
 
 #if SKIP
             if (pass % skipCheckPerPasses == 0 && pass >= passCanCheck) {
