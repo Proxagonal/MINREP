@@ -10,11 +10,11 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE true
+#define VISUALIZE false
 #define COMPARE_QUANTS true
-#define HALTCHECK true
-#define SOW true
-#define SKIP true
+#define HALTCHECK false
+#define SOW false
+#define SKIP false
 
 #if VISUALIZE
 #include <unistd.h>
@@ -27,7 +27,7 @@ static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2
 static const long double LD_PI = 3.141592653589793238462643383279L;
 static const long double LD_G = 4*LD_PI*LD_PI;
 static const long double LD_G_inv = 1/LD_G;
-static const double G = 4*LD_PI*LD_PI;
+static const double G = LD_G;
 static const double G_inv = 1/LD_G;
 
 
@@ -50,9 +50,9 @@ private:
 #endif
 
 #if SOW
-    static constexpr double distanceToLengthPerDt_MAX = 2.8;
-    const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
-    static constexpr double sowingDistanceRatio = pow(10, 2.2);
+    static constexpr double distanceToLengthPerDt_MAX = 400; //FIEN
+    const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX/1000, 2);//FIEN //1/pow(distanceToLengthPerDt_MAX*dt, 2);
+    static constexpr double sowingDistanceRatio = pow(10, 1); //FIEN
     static constexpr double sow_drSquared = sowingDistanceRatio*sowingDistanceRatio;
 #endif
 
@@ -69,16 +69,17 @@ private:
     Visualizer visuals;
 
     const int savePosPerPasses = (1/dt) / 100;
-    const double secondPerFrame = 0.06;
+    const double secondPerFrame = 0.5;
 
     static constexpr double t_frame_approx = 0.012412223522235222087;
     static constexpr double t_symp_approx = 1.8 * pow(10, -7);
     const int framePerPasses = ceil(t_frame_approx/(secondPerFrame*dt - t_symp_approx));
+
 #endif
 
 #if COMPARE_QUANTS
     Quantities initialQuants;
-    const int comparePerPasses = 1/dt;
+    const int comparePerPasses = 20/dt; //FIEN
 #endif
 
     //returns initial conditions of system
@@ -103,9 +104,9 @@ private:
 
     void updateAccelerations() {
 
-        Vector2d mutualVector;
+        VectorDd mutualVector;
 
-        for (Vector2d &acc : bodyfold.accList)
+        for (VectorDd &acc : bodyfold.accList)
             acc.setZero();
 
         nat j;
@@ -117,9 +118,9 @@ private:
         }
     }
 
-    static Vector2d directedInverseSquare(const Vector2d &pos1, const Vector2d &pos2) {
+    static VectorDd directedInverseSquare(const VectorDd &pos1, const VectorDd &pos2) {
 
-        Vector2d diff = pos2 - pos1;
+        VectorDd diff = pos2 - pos1;
         return G * diff / (diff.norm() * diff.squaredNorm());
     }
 
@@ -139,6 +140,56 @@ private:
         long double sinA = sin(angle);
 
         return {v.x() * cosA - v.y() * sinA, v.x() * sinA + v.y() * cosA};
+    }
+
+    inline static tuple<VectorDld, VectorDld> subspaceBasis(VectorDld &u, VectorDld &v) {
+
+        if (u.squaredNorm() == 0) {
+            if (v.squaredNorm() == 0)
+                throw std::domain_error("r12=0, v12=0");
+            return subspaceBasis(v, u);
+        }
+        if (u.squaredNorm()*v.squaredNorm() == pow(u.dot(v), 2)) {
+
+            VectorDld vArb = VectorDld::Zero();
+            vArb(0) = -u(1);
+            vArb(1) = u(0);
+            if (u(0) == 0 && u(1) == 0)
+                vArb(0) = 1;
+            else
+                vArb.normalize();
+
+            return {u.normalized(), vArb};
+
+        }
+
+        VectorDld uhat = u.normalized();
+
+        return {uhat, (v - v.dot(uhat)*uhat).normalized()};
+    }
+
+    inline static Vector2ld inSubspace(VectorDld &u, tuple<VectorDld, VectorDld> &basis) {
+
+        auto &[a, b] = basis;
+        return {u.dot(a), u.dot(b)};
+    }
+
+    inline static VectorDld inSpace(Vector2ld &u, tuple<VectorDld, VectorDld> &basis) {
+
+        auto &[a, b] = basis;
+        return u.x()*a + u.y()*b;
+    }
+
+    inline static tuple<Vector2ld, Vector2ld, tuple<VectorDld, VectorDld>> toSubspace(VectorDld &u, VectorDld &v) {
+
+        auto basis = subspaceBasis(u, v);
+
+        return {inSubspace(u, basis), inSubspace(v, basis), basis};
+    }
+
+    inline static tuple<VectorDld, VectorDld> toSpace(Vector2ld &u, Vector2ld &v, tuple<VectorDld, VectorDld> &basis) {
+
+        return {inSpace(u, basis), inSpace(v, basis)};
     }
 
     // CIRCULAR OUTER LIKELY FALSE
@@ -359,25 +410,33 @@ private:
         long double innerM = bodyfold.massList[uno] + bodyfold.massList[dos];
         long double M = innerM + bodyfold.massList[far];
 
-        Vector2ld COM = (bodyfold.massList[0]*bodyfold.posList[0]
+        VectorDld COM = (bodyfold.massList[0]*bodyfold.posList[0]
                         + bodyfold.massList[1]*bodyfold.posList[1]
                         + bodyfold.massList[2]*bodyfold.posList[2]).cast<long double>() / M;
-        Vector2ld COMvel = (bodyfold.massList[0]*bodyfold.velList[0]
+        VectorDld COMvel = (bodyfold.massList[0]*bodyfold.velList[0]
                         + bodyfold.massList[1]*bodyfold.velList[1]
                         + bodyfold.massList[2]*bodyfold.velList[2]).cast<long double>() / M;
 
-        Vector2ld innerPosRel = (bodyfold.posList[dos] - bodyfold.posList[uno]).cast<long double>();
-        Vector2ld innerVelRel = (bodyfold.velList[dos] - bodyfold.velList[uno]).cast<long double>();
+        VectorDld innerPosRel = (bodyfold.posList[dos] - bodyfold.posList[uno]).cast<long double>();
+        VectorDld innerVelRel = (bodyfold.velList[dos] - bodyfold.velList[uno]).cast<long double>();
 
-        auto [T, total, innerPosRelNew, innerVelRelNew] = mirrorPath(innerM, innerPosRel, innerVelRel);
+        auto [IPR_2d, IVR_2d, innerBasis] = toSubspace(innerPosRel, innerVelRel);
 
-        Vector2ld innerCOM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]).cast<long double>() / innerM;
-        Vector2ld innerCOMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]).cast<long double>() / innerM;
+        auto [T, total, IPRN_2d, IVRN_2d] = mirrorPath(innerM, IPR_2d, IVR_2d);
 
-        Vector2ld outerPosRel = bodyfold.posList[far].cast<long double>() - innerCOM;
-        Vector2ld outerVelRel = bodyfold.velList[far].cast<long double>() - innerCOMvel;
+        auto [innerPosRelNew, innerVelRelNew] = toSpace(IPRN_2d, IVRN_2d, innerBasis);
 
-        auto [farNewPos, farNewVel] = orbitForTime(T, M, outerPosRel, outerVelRel);
+        VectorDld innerCOM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]).cast<long double>() / innerM;
+        VectorDld innerCOMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]).cast<long double>() / innerM;
+
+        VectorDld outerPosRel = bodyfold.posList[far].cast<long double>() - innerCOM;
+        VectorDld outerVelRel = bodyfold.velList[far].cast<long double>() - innerCOMvel;
+
+        auto [OPR_2d, OVR_2d, outerBasis] = toSubspace(outerPosRel, outerVelRel);
+
+        auto [FNP_2d, FNV_2d] = orbitForTime(T, M, OPR_2d, OVR_2d);
+
+        auto [farNewPos, farNewVel] = toSpace(FNP_2d, FNV_2d, outerBasis);
 
         COM += T*COMvel;
         bodyfold.posList[far] = (COM + innerM/M * farNewPos).cast<double>();
@@ -402,20 +461,26 @@ private:
         long double innerM = bodyfold.massList[uno] + bodyfold.massList[dos];
         long double M = innerM + bodyfold.massList[far];
 
-        Vector2ld COM = (bodyfold.massList[0]*bodyfold.posList[0]
+        VectorDld COM = (bodyfold.massList[0]*bodyfold.posList[0]
                         + bodyfold.massList[1]*bodyfold.posList[1]
                         + bodyfold.massList[2]*bodyfold.posList[2]).cast<long double>() / M;
-        Vector2ld COMvel = (bodyfold.massList[0]*bodyfold.velList[0]
+        VectorDld COMvel = (bodyfold.massList[0]*bodyfold.velList[0]
                         + bodyfold.massList[1]*bodyfold.velList[1]
                         + bodyfold.massList[2]*bodyfold.velList[2]).cast<long double>() / M;
 
-        Vector2ld innerCOM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]).cast<long double>() / innerM;
-        Vector2ld innerCOMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]).cast<long double>() / innerM;
+        VectorDld innerCOM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]).cast<long double>() / innerM;
+        VectorDld innerCOMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]).cast<long double>() / innerM;
 
-        Vector2ld outerPosRel = bodyfold.posList[far].cast<long double>() - innerCOM;
-        Vector2ld outerVelRel = bodyfold.velList[far].cast<long double>() - innerCOMvel;
+        VectorDld outerPosRel = bodyfold.posList[far].cast<long double>() - innerCOM;
+        VectorDld outerVelRel = bodyfold.velList[far].cast<long double>() - innerCOMvel;
 
-        auto [t_toClose, Ttotal, outerPosRelNew, outerVelRelNew] = mirrorPath(M, outerPosRel, outerVelRel);
+
+        auto [OPR_2d, OVR_2d, outerBasis] = toSubspace(outerPosRel, outerVelRel);
+
+        auto [t_toClose, Ttotal, OPRN_2d, OVRN_2d] = mirrorPath(M, OPR_2d, OVR_2d);
+
+        auto [outerPosRelNew, outerVelRelNew] = toSpace(OPRN_2d, OVRN_2d, outerBasis);
+
 
         if (Ttotal == 0)
             throw std::domain_error("SKIP: NOT ELLIPTIC");
@@ -427,8 +492,12 @@ private:
         Vector2ld innerPosRel = (bodyfold.posList[dos] - bodyfold.posList[uno]).cast<long double>();
         Vector2ld innerVelRel = (bodyfold.velList[dos] - bodyfold.velList[uno]).cast<long double>();
 
+        auto [IPR_2d, IVR_2d, innerBasis] = toSubspace(innerPosRel, innerVelRel);
 
-        auto [innerPosRelNew, innerVelRelNew] = orbitForTime(T, innerM, innerPosRel, innerVelRel);
+        auto [IPRN_2d, IVRN_2d] = orbitForTime(T, innerM, IPR_2d, IVR_2d);
+
+        auto [innerPosRelNew, innerVelRelNew] = toSpace(IPRN_2d, IVRN_2d, innerBasis);
+
 
         COM += T*COMvel;
 
@@ -449,7 +518,7 @@ private:
         int dos = (far + 2) % NUM;
 
         double mu_ud = G*(bodyfold.massList[uno] + bodyfold.massList[dos]);
-        Vector2d velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
+        VectorDd velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
 
 
         double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / (bodyfold.posList[dos] - bodyfold.posList[uno]).norm();
@@ -459,12 +528,12 @@ private:
             return false;
 
 
-        Vector2d innerCOM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) / (bodyfold.massList[uno] + bodyfold.massList[dos]);
-        Vector2d innerCOMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) / (bodyfold.massList[uno] + bodyfold.massList[dos]);
+        VectorDd innerCOM = (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]) / (bodyfold.massList[uno] + bodyfold.massList[dos]);
+        VectorDd innerCOMvel = (bodyfold.massList[uno]*bodyfold.velList[uno] + bodyfold.massList[dos]*bodyfold.velList[dos]) / (bodyfold.massList[uno] + bodyfold.massList[dos]);
 
 
-        Vector2d deltaPosWholeSystem = bodyfold.posList[far] - innerCOM;
-        Vector2d deltaVelWholeSystem = bodyfold.velList[far] - innerCOMvel;
+        VectorDd deltaPosWholeSystem = bodyfold.posList[far] - innerCOM;
+        VectorDd deltaVelWholeSystem = bodyfold.velList[far] - innerCOMvel;
         double muWholeSystem = mu_ud + G*bodyfold.massList[far];
 
 
@@ -540,7 +609,7 @@ private:
         double mu = bodyfold.massList[uno];
         double md = bodyfold.massList[dos];
         double mu_ud = G*(mu + md);
-        Vector2d velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
+        VectorDd velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
 
 
         double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / sqrt(distSquares[uno]);
@@ -556,11 +625,11 @@ private:
         if (edrSquared * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
             return 0;
 
-        Vector2d binaryCOM = (mu*bodyfold.posList[uno] + md*bodyfold.posList[dos])/(mu + md);
-        Vector2d binaryCOMVel = (mu*bodyfold.velList[uno] + md*bodyfold.velList[dos])/(mu + md);
+        VectorDd binaryCOM = (mu*bodyfold.posList[uno] + md*bodyfold.posList[dos])/(mu + md);
+        VectorDd binaryCOMVel = (mu*bodyfold.velList[uno] + md*bodyfold.velList[dos])/(mu + md);
 
-        Vector2d deltaPosWholeSystem = bodyfold.posList[i] - binaryCOM;
-        Vector2d deltaVelWholeSystem = bodyfold.velList[i] - binaryCOMVel;
+        VectorDd deltaPosWholeSystem = bodyfold.posList[i] - binaryCOM;
+        VectorDd deltaVelWholeSystem = bodyfold.velList[i] - binaryCOMVel;
         double muWholeSystem = mu_ud + G*bodyfold.massList[i];
 
 
@@ -602,8 +671,8 @@ private:
             const int uno = (i + 1) % NUM;
             const int dos = (i + 2) % NUM;
 
-            Vector2d relPos = bodyfold.posList[dos] - bodyfold.posList[uno];
-            Vector2d relVel = bodyfold.velList[dos] - bodyfold.velList[uno];
+            VectorDd relPos = bodyfold.posList[dos] - bodyfold.posList[uno];
+            VectorDd relVel = bodyfold.velList[dos] - bodyfold.velList[uno];
 
             const double r12 = sqrt(distSquares[uno]);
 
@@ -688,11 +757,18 @@ public:
         long passCanCheck = 0;
 #endif
 
-#if SOW || SKIP
+#if SOW || SKIP || true //FIEN
         long double tSkipped = 0;
 #endif
 
         for (long pass = 0; pass*dt < T; pass++) {
+
+            if (pass*dt + tSkipped >= 1000) {
+
+                cout << setprecision(17) << "T = " << pass*dt + tSkipped << endl;
+                dumpSystemStateString();
+                return;
+            }
 
 #if SKIP
             if (pass % skipCheckPerPasses == 0 && pass >= passCanCheck) {
@@ -719,8 +795,8 @@ public:
 
                 nat j = (i + 1) % NUM;
 
-                Vector2d relpos = bodyfold.posList[j] - bodyfold.posList[i];
-                Vector2d relvel = bodyfold.velList[j] - bodyfold.velList[i];
+                VectorDd relpos = bodyfold.posList[j] - bodyfold.posList[i];
+                VectorDd relvel = bodyfold.velList[j] - bodyfold.velList[i];
 
                 // if both sim-bad condition AND getting worse AND body ratio allows it
                 if (relvel.squaredNorm() >= RsquaredConst * relpos.squaredNorm()
@@ -763,12 +839,14 @@ public:
     //calculates important quantities
     Quantities quantities() {
 
-        Vector2d mom = bodyfold.sumMomentum();
-        double kin = bodyfold.sumKineticEnergy();
+        VectorDd wpos = bodyfold.getWeightedPosition();
+        VectorDd mom = bodyfold.sumMomentum();
+        VectorAngd angMom = bodyfold.sumAngularMomentum();
 
+        double kin = bodyfold.sumKineticEnergy();
         double pot = calcPotential();
 
-        return {mom.x(), mom.y(), kin, pot, bodyfold.sumAngularMomentum()};
+        return {wpos, mom, angMom, kin, pot};
     };
 
 #if COMPARE_QUANTS

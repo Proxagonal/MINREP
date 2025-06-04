@@ -14,28 +14,58 @@ std::chrono::steady_clock::time_point now() {
     return std::chrono::steady_clock::now();
 }
 
+VectorDd rotateAroundAxis(const VectorDd& U, const VectorDd& u, double theta) {
+    // Normalize the axis of rotation
+    Eigen::Vector3d axis = U.normalized();
+
+    // Rodrigues' rotation formula:
+    // u_rot = u * cosθ + (axis × u) * sinθ + axis * (axis • u) * (1 - cosθ)
+    double cos_theta = cos(theta);
+    double sin_theta = sin(theta);
+
+    return u * cos_theta
+         + axis.cross(u) * sin_theta
+         + axis * (axis.dot(u)) * (1 - cos_theta);
+}
+
 int main() {
 
     string str = R"(
 Body #0:
-Mass: 1.636771220589853
-Position: 40 -60
-Velocity: 2.1 0.8
+Mass: 1.15
+Position:  3 2 0
+Velocity:  0.5 0.5 5
 Body #1:
-Mass: 1.557730835697107
-Position: 20 -55
-Velocity: -3 0
+Mass: 2.05
+Position: 0 0 0
+Velocity:   0 0 0
 Body #2:
-Mass: 1.242946611213134
-Position: 20 -60
-Velocity:  0 0
+Mass: 0
+Position: 100 0 0
+Velocity:  0 1 0.7
 )";
     initialData init = Bodyfold::stringToInitialData(str);
-    init = Bodyfold::transformToCOMSystem(init);
+    initialData init2 = Bodyfold::transformToCOMSystem(init);
+
+    VectorDd SHIFT(2, -4, 6);
+    VectorDd VSHIFT(-1, 2, -3);
+
+    VectorDd U(1, 1, -1);
+    double theta  = 2.5;
+
+    for (int i = 0; i < NUM; i++) {
+
+        VectorDd pos = rotateAroundAxis(U, get<1>(init[i]), theta) + SHIFT;
+        VectorDd vel = rotateAroundAxis(U, get<2>(init[i]), theta) + VSHIFT;
+
+
+        init[i] = {get<0>(init[i]), pos, vel};
+    }
+
 
     bool RAND = false;
     init = RAND ? Bodyfold::generateRandomCOM() : init;
-    Solver solver(1000000, pow(10, -3), init);
+    Solver solver(1000000, pow(10, -6), init);
 
     auto start = now();
 

@@ -1,13 +1,11 @@
 #ifndef NBPCPP_SIMPSIM_H
 #define NBPCPP_SIMPSIM_H
 
-#include <iostream>
 #include <Eigen/Eigen>
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 #include <SFML/System.hpp>
 #include <unistd.h>
-#include "Solver.h"
 
 #define RAD 0.5
 
@@ -25,13 +23,14 @@ private:
                                       sf::Color(50, 50, 255)};
     static constexpr int wSkips = 1000/100;
     int wCount = 0;
-    int pathLength = 100000;
+    const int pathLength = 1000;
+    double farRate = 10;
 
 
     sf::RenderWindow window;
     sf::View view;
 
-    array<vector<Vector2d>, NUM> paths;
+    array<sf::VertexArray, NUM> paths;
     int pathStart = 0;
     int trueLength = 0;
 
@@ -39,29 +38,51 @@ private:
     sf::Vector2i anchor;
     sf::Vector2i mouseMove;
 
-    void drawPos(const Vector2d &pos, int i) {
 
-        sf::CircleShape shape(RAD);
+    double effectiveOtherDistance(const VectorDd &pos) {
+        VectorDd otherCoords = pos;
+        otherCoords(0) = 0;
+        otherCoords(1) = 0;
 
-        //shape.setFillColor(sf::Color::White);
-        shape.setFillColor(colors[i]);
-        shape.setOrigin(RAD, RAD);
+        return otherCoords.sum() / (DIM*farRate);
+    }
+
+    double effectiveRadius(const VectorDd &pos) {
+        if (DIM <= 2)
+            return RAD;
+
+        VectorDd otherCoords = pos;
+        otherCoords(0) = 0;
+        otherCoords(1) = 0;
+
+        return RAD*(1 + tanh(effectiveOtherDistance(pos)));
+    }
+
+    inline sf::Color effectiveColor(const VectorDd &pos, const sf::Color &color) {
+        return color;
+    }
+
+    void drawPos(const VectorDd &pos, int i) {
+
+        double rad = effectiveRadius(pos);
+
+        sf::CircleShape shape(rad);
+
+        shape.setFillColor(effectiveColor(pos, colors[i]));
+        shape.setOrigin(rad, rad);
         shape.setPosition(pos.x(), pos.y());
 
         window.draw(shape);
     }
 
-    void drawPath(const vector<Vector2d> path, int j) {
+    void drawPath(sf::VertexArray &path, int j) {
 
-        sf::VertexArray lines(sf::LinesStrip, trueLength);
-
-
-        for (int i = 0; i < trueLength; i++) {
-            lines[i] = sf::Vector2f(path[(i + pathStart)%pathLength].x(), path[(i + pathStart)%pathLength].y());
-            lines[i].color = colors[j];
+        if (trueLength < pathLength) {
+            window.draw(&path[0], trueLength, sf::LinesStrip);
+            return;
         }
 
-        window.draw(lines);
+        window.draw(&path[pathStart], pathLength, sf::LinesStrip);
     }
 
     void zoom(double scrollDelta) {
@@ -70,6 +91,23 @@ private:
                      view.getSize().y * (1 - scrollDelta * zoomSpeed));
         window.setView(view);
     }
+
+    static sf::Vector2f toSFML(const VectorDd &v) {
+        return sf::Vector2f(v.x(), v.y());
+    }
+
+    // BREAKS FOR NUM =/= 3
+    array<int, NUM> bodiesOrdered(const array<VectorDd, NUM> &posList) {
+
+        int a = 0, b = 1, c = 2;
+
+        if (effectiveRadius(posList[a]) > effectiveRadius(posList[b])) swap(a, b);
+        if (effectiveRadius(posList[a]) > effectiveRadius(posList[c])) swap(a, c);
+        if (effectiveRadius(posList[b]) > effectiveRadius(posList[c])) swap(b, c);
+
+        return {a, b, c};
+    }
+
 
 public:
 
@@ -87,8 +125,11 @@ public:
 
         window.setView(view);
 
-        auto pos = sf::Vector2i(1000,70);
+        auto pos = sf::Vector2i(1000,70); //HUH
         window.setPosition(pos);
+
+        for (int i = 0; i < NUM; i++)
+            paths[i] = sf::VertexArray(sf::LinesStrip, 2*pathLength);
     }
 
     bool isOpen() {
@@ -98,7 +139,7 @@ public:
         return sf::Keyboard::isKeyPressed(sf::Keyboard::S);
     }
 
-    void visualizationLoop(const array<Vector2d, NUM> &posList) {
+    void visualizationLoop(const array<VectorDd, NUM> &posList) {
 
         wCount--;
         if (wCount > 0)
@@ -144,25 +185,42 @@ public:
 
         window.clear();
 
-        for (int i = 0; i < NUM; i++) {
+        for (int i = 0; i < NUM; i++)
             drawPath(paths[i], i);
+        for (int i : bodiesOrdered(posList))
             drawPos(posList[i], i);
-        }
 
         window.display();
     }
 
-    void addToPaths(const array<Vector2d, NUM> &posList) {
+    void addToPaths(const array<VectorDd, NUM> &posList) {
 
         if (trueLength < pathLength) {
-            for (int i = 0; i < NUM; i++)
-                paths[i].emplace_back(posList[i]);
+            for (int i = 0; i < NUM; i++) {
+
+                auto pos = toSFML(posList[i]);
+                auto color = effectiveColor(posList[i], colors[i]);
+
+                paths[i][trueLength] = pos;
+                paths[i][trueLength].color = color;
+                paths[i][trueLength + pathLength] = pos;
+                paths[i][trueLength + pathLength].color = color;
+
+            }
             trueLength++;
             return;
         }
 
-        for (int i = 0; i < NUM; i++)
-            paths[i][pathStart] = posList[i];
+        for (int i = 0; i < NUM; i++) {
+
+            auto pos = toSFML(posList[i]);
+            auto color = effectiveColor(posList[i], colors[i]);
+
+            paths[i][(pathStart + 2*pathLength)%(2*pathLength)] = pos;
+            paths[i][(pathStart + 2*pathLength)%(2*pathLength)].color = color;
+            paths[i][(pathStart - pathLength + 2*pathLength)%(2*pathLength)] = pos;
+            paths[i][(pathStart - pathLength + 2*pathLength)%(2*pathLength)].color = color;
+        }
         pathStart++;
         pathStart = pathStart%pathLength;
     }

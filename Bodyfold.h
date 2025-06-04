@@ -6,15 +6,14 @@
 #include <cmath>
 #include <random>
 
+#include "Consts.h"
+
 using namespace std;
 using namespace Eigen;
 
-#define NUM 3
-
-typedef vector<tuple<double, Vector2d, Vector2d>> initialData;
-typedef array<Vector2d, NUM> vData;
+typedef vector<tuple<double, VectorDd, VectorDd>> initialData;
+typedef array<VectorDd, NUM> vData;
 typedef array<double, NUM> Data;
-typedef Vector<long double, 2> Vector2ld;
 
 
 struct Bodyfold {
@@ -25,15 +24,16 @@ private:
 
     constexpr static double massMin = 0.5;
     constexpr static double massMax = 2;
-    constexpr static double systemRadius = 35;
-    constexpr static double velocityMax = 19;
+    constexpr static double systemRadius = 10;
+    constexpr static double velocityMax = 3;
 
-    static Vector2d toCartesian(double rad, double theta) {
-        return {rad*cos(theta), rad*sin(theta)};
-    }
+    static VectorDd randomOnRadiusD(double r) {
 
-    static Vector2d randomOnRadius(double r) {
-        return toCartesian(r * sqrt(rand01()), 2 * M_PI * rand01());
+        // According to Box-Mueller. Needs testing.
+
+        VectorDd Z = VectorDd::NullaryExpr([&]() { return randNormalStandard();});
+
+        return r * pow(rand01(), 1.0/DIM) * Z.normalized();
     }
 
     static double rand01() {
@@ -43,15 +43,22 @@ private:
         static std::uniform_real_distribution<double> dist{0, 1};
 
         return dist(gen);
-
-        //return (double) rand() / RAND_MAX;
     }
 
-    inline static double cross(Vector2d &a, Vector2d &b) {
+    static double randNormalStandard() {
+
+        static std::random_device rd;
+        static std::mt19937_64 gen(rd());
+        static std::normal_distribution<double> dist{0, 1};
+
+        return dist(gen);
+    }
+
+    inline static double cross(VectorDd &a, VectorDd &b) {
         return a.x()*b.y() - a.y()*b.x();
     }
 
-    inline static double cross(Vector2d a, Vector2d b) {
+    inline static double cross(VectorDd a, VectorDd b) {
         return a.x()*b.y() - a.y()*b.x();
     }
 
@@ -77,7 +84,7 @@ public:
         for (auto const &[mass, pos, vel] : init) {
             posList[i] = pos;
             velList[i] = vel;
-            accList[i] = Vector2d(0, 0);
+            accList[i] = VectorDd::Zero();
             i++;
         }
     };
@@ -91,22 +98,29 @@ public:
         return kin;
     };
 
-    double sumAngularMomentum() {
+    VectorAngd sumAngularMomentum() {
 
-        Vector2d COM = getCOMPosition();
-        Vector2d COMvel = getCOMVelocity();
+        VectorDd COM = getCOMPosition();
+        VectorDd COMvel = getCOMVelocity();
 
-        double total = 0;
+        VectorAngd total = VectorAngd::Zero();
 
-        for (int i = 0; i < NUM; i++)
-            total += massList[i] * cross(posList[i] - COM, velList[i] - COMvel);
+        for (int b = 0; b < NUM; b++) {
+
+            VectorDd posInCOM = posList[b] - COM;
+            VectorDd momInCOM = massList[b]*(velList[b] - COMvel);
+
+            for (int i = 0; i < DIM; i++)
+                for (int j = i + 1; j < DIM; j++)
+                    total(angularIndex(i, j)) += posInCOM(i)*momInCOM(j) - momInCOM(i)*posInCOM(j);
+        }
 
         return total;
     }
 
-    Vector2d sumMomentum() {
+    VectorDd sumMomentum() {
 
-        Vector2d mom(0,0);
+        VectorDd mom = VectorDd::Zero();
         for (int i = 0; i < NUM; i++)
             mom += massList[i] * velList[i];
 
@@ -122,19 +136,24 @@ public:
         return mass;
     }
 
-    Vector2d getCOMVelocity() {
+    VectorDd getCOMVelocity() {
 
         return sumMomentum()/sumMass();
     }
 
-    Vector2d getCOMPosition() {
+    VectorDd getWeightedPosition() {
 
-        Vector2d com(0,0);
+        VectorDd weighted = VectorDd::Zero();
 
         for (int i = 0; i < NUM; i++)
-            com += massList[i] * posList[i];
+            weighted += massList[i] * posList[i];
 
-        return com/sumMass();
+        return weighted;
+    }
+
+    VectorDd getCOMPosition() {
+
+        return getWeightedPosition()/sumMass();
     }
 
     // Symmetries: rotation, scale, mass sum, COM, p_COM
@@ -142,13 +161,13 @@ public:
 
         initialData list;
 
-        Vector2d pos;
-        Vector2d vel;
+        VectorDd pos;
+        VectorDd vel;
         double mass;
 
         for (int i = 0; i < NUM; i++) {
-            pos = randomOnRadius(systemRadius);
-            vel = randomOnRadius(velocityMax);
+            pos = randomOnRadiusD(systemRadius);
+            vel = randomOnRadiusD(velocityMax);
             mass = massMin + (massMax - massMin) * rand01();
             list.emplace_back(mass, pos, vel);
         }
@@ -160,13 +179,13 @@ public:
 
         initialData list;
 
-        Vector2d pos;
-        Vector2d vel;
+        VectorDd pos;
+        VectorDd vel;
         double mass;
 
         for (int i = 0; i < NUM; i++) {
-            pos = randomOnRadius(systemRadius);
-            vel = randomOnRadius(velocityMax);
+            pos = randomOnRadiusD(systemRadius);
+            vel = randomOnRadiusD(velocityMax);
             mass = (i < 2)*(massMin + (massMax - massMin) * rand01());
             list.emplace_back(mass, pos, vel);
         }
@@ -179,13 +198,13 @@ public:
 
         initialData list;
 
-        Vector2d pos;
-        Vector2d vel;
+        VectorDd pos;
+        VectorDd vel;
         double mass;
 
         for (int i = 0; i < NUM; i++) {
-            pos = randomOnRadius(systemRadius);
-            vel = randomOnRadius(velocityMax);
+            pos = randomOnRadiusD(systemRadius);
+            vel = randomOnRadiusD(velocityMax);
             mass = massMin + (massMax - massMin) * rand01();
             list.emplace_back(mass, pos, vel);
         }
@@ -198,8 +217,8 @@ public:
         initialData COMMED;
 
         double massSum = 0;
-        Vector2d weightedPoses(0, 0);
-        Vector2d weightedVels(0, 0);
+        VectorDd weightedPoses = VectorDd::Zero();
+        VectorDd weightedVels = VectorDd::Zero();
 
         for (auto const &[mass, pos, vel] : init) {
             massSum += mass;
@@ -207,8 +226,8 @@ public:
             weightedVels += mass*vel;
         }
 
-        Vector2d COM = weightedPoses/massSum;
-        Vector2d COMVel = weightedVels/massSum;
+        VectorDd COM = weightedPoses/massSum;
+        VectorDd COMVel = weightedVels/massSum;
 
         for (auto const &[mass, pos, vel] : init)
             COMMED.emplace_back(mass, pos - COM, vel - COMVel);
@@ -253,17 +272,26 @@ public:
     static initialData stringToInitialData(string &str) {
 
         initialData bodies;
-        istringstream iss(str);
-        string line;
-        double mass, posX, posY, velX, velY;
-        while (getline(iss, line)) {
-            if (line.find("Mass") != string::npos) {
-                stringstream(line.substr(line.find(":") + 1)) >> mass;
-                getline(iss, line);  // Position line
-                stringstream(line.substr(line.find(":") + 1)) >> posX >> posY;
-                getline(iss, line);  // Velocity line
-                stringstream(line.substr(line.find(":") + 1)) >> velX >> velY;
-                bodies.emplace_back(mass, Eigen::Vector2d(posX, posY), Eigen::Vector2d(velX, velY));
+        std::istringstream iss(str);
+        std::string line;
+        double mass;
+        while (std::getline(iss, line)) {
+            if (line.find("Mass") != std::string::npos) {
+                std::stringstream(line.substr(line.find(":") + 1)) >> mass;
+
+                // Parse position
+                VectorDd pos;
+                std::getline(iss, line);
+                std::stringstream posStream(line.substr(line.find(":") + 1));
+                for (int i = 0; i < DIM; ++i) posStream >> pos[i];
+
+                // Parse velocity
+                VectorDd vel;
+                std::getline(iss, line);
+                std::stringstream velStream(line.substr(line.find(":") + 1));
+                for (int i = 0; i < DIM; ++i) velStream >> vel[i];
+
+                bodies.emplace_back(mass, pos, vel);
             }
         }
 
