@@ -32,38 +32,22 @@ int main() {
 
     string str = R"(
 Body #0:
-Mass: 1.15
-Position:  3 2 0
-Velocity:  0.5 0.5 5
+Mass: 1.636771220589853
+Position: 40 -60 0
+Velocity: 2.3 1 0
 Body #1:
-Mass: 2.05
-Position: 0 0 0
-Velocity:   0 0 0
+Mass: 1.557730835697107
+Position: 20 -55 0
+Velocity: -3 0 0
 Body #2:
-Mass: 0
-Position: 100 0 0
-Velocity:  0 1 0.7
+Mass: 1.242946611213134
+Position: 20 -60 0
+Velocity:  0 0 0
 )";
     initialData init = Bodyfold::stringToInitialData(str);
-    initialData init2 = Bodyfold::transformToCOMSystem(init);
+    init = Bodyfold::transformToCOMSystem(init);
 
-    VectorDd SHIFT(2, -4, 6);
-    VectorDd VSHIFT(-1, 2, -3);
-
-    VectorDd U(1, 1, -1);
-    double theta  = 2.5;
-
-    for (int i = 0; i < NUM; i++) {
-
-        VectorDd pos = rotateAroundAxis(U, get<1>(init[i]), theta) + SHIFT;
-        VectorDd vel = rotateAroundAxis(U, get<2>(init[i]), theta) + VSHIFT;
-
-
-        init[i] = {get<0>(init[i]), pos, vel};
-    }
-
-
-    bool RAND = false;
+    bool RAND = true;
     init = RAND ? Bodyfold::generateRandomCOM() : init;
     Solver solver(1000000, pow(10, -3), init);
 
