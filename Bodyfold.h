@@ -24,8 +24,8 @@ private:
 
     constexpr static double massMin = 0.5;
     constexpr static double massMax = 2;
-    constexpr static double systemRadius = 10;
-    constexpr static double velocityMax = 3;
+    constexpr static double systemRadius = 15;
+    constexpr static double velocityMax = 2.5;
 
     static VectorDd randomOnRadiusD(double r) {
 
@@ -35,7 +35,7 @@ private:
 
         return r * pow(rand01(), 1.0/DIM) * Z.normalized();
     }
-
+public:
     static double rand01() {
 
         static std::random_device rd;
@@ -44,6 +44,7 @@ private:
 
         return dist(gen);
     }
+private:
 
     static double randNormalStandard() {
 

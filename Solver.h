@@ -10,8 +10,8 @@
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE true
-#define COMPARE_QUANTS true
+#define VISUALIZE false
+#define COMPARE_QUANTS false
 #define HALTCHECK true
 #define SOW true
 #define SKIP true
@@ -35,10 +35,46 @@ typedef uint_fast8_t nat;
 
 class Solver {
 
-private:
+public:
 
     const int T;
     const double dt;
+
+    double time = 0;
+    double EAMax = 0;
+
+    int SEECheckPer = 1/(100*dt);
+    static const int SEE_ratio = 4;
+    static const int SEE_detectRatio = 2;
+
+    inline bool isGoingAway(nat far);
+    inline bool isFarWithRatio(nat i, double ratio);
+    inline nat SEE_0();
+    inline int SEE_1(nat far);
+    inline bool SEE_2(nat far);
+    inline bool SEE_3(nat far);
+    inline long double AARatio(nat far);
+
+
+    // if i didnt have to get stats, these would either be gone or inside of run()
+    int SEE_status = 0;
+    nat SEE_body;
+    long double SEE_time;
+    long double SEE_AAratio;
+
+    // S.E.E: (body, t, delta_t, a_big/a_small)
+    vector<tuple<int, double, double, double>> SEEInfo;
+
+    double SKIPAARatio;
+    // SKIP: (body, delta_t, a_big/a_small, EA_B, EA_A)
+    vector<tuple<int, double, double, double, double>> SKIPInfo;
+
+    long sowCount = 0;
+    // SOW: (body, num, delta_t, r^2, v*dt ^ 2, R, EA_B, EA_A)
+    vector<tuple<int, int, double, double, double, double, double, double>> SOWInfo;
+
+    const int EACheckPerPasses = 1/dt;
+
 
     Bodyfold bodyfold;
 
@@ -58,7 +94,7 @@ private:
 
 #if SKIP
     const int skipCheckPerPasses = 1/dt;
-    const double skippingDistanceApoapsisRatio = 500;
+    const double skippingDistanceApoapsisRatio = 200;
     const double minPassesForSkip = pow(10, 7); // About 1 real sec
 
     const double minTimeForSkip = minPassesForSkip * dt;
@@ -548,6 +584,8 @@ private:
 
         double ellipseMajor_ud = -mu_ud/epsilon_ud;
 
+        SKIPAARatio = (-muWholeSystem/epsilonWholeSystem)/ellipseMajor_ud;
+
         // This means the approximation will not be good at apoapsis
         // Multiply by apo^2 for no division
         return (skip_DARSquared * ellipseMajor_ud * ellipseMajor_ud
@@ -731,8 +769,6 @@ private:
 #endif
 
 
-public:
-
     Solver(int givenT, double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt}
 #if VISUALIZE
     , visuals{800, 800, getSystemRadius()}
@@ -748,7 +784,7 @@ public:
 #endif
 
         updateAccelerations();
-        dumpSystemStateString();
+        //dumpSystemStateString();
     }
 
     void run() {
@@ -829,6 +865,182 @@ public:
         }
     }
 
+    tuple<int, tuple<int, int>> run_TSPDT(double initialEnergy, double divMax) {
+
+        double EA;
+        long pass;
+
+        long passCanCheck = 0;
+        long double tSkipped = 0;
+
+        for (pass = 0; pass*dt + tSkipped < T; pass++) {
+
+            if (pass % skipCheckPerPasses == 0 && pass >= passCanCheck) {
+                for (nat i = 0; i < NUM; i++) {
+
+                    nat uno = (i+1)%NUM;
+                    nat dos = (i+2)%NUM;
+
+                    double smallDistSquared = (bodyfold.posList[dos] - bodyfold.posList[uno]).squaredNorm();
+                    double bigDistSquared = (bodyfold.posList[i] - bodyfold.posList[dos]).squaredNorm();
+
+                    if (skip_DARSquared*smallDistSquared < bigDistSquared)
+                        if (checkDAR(i)) {
+
+                            auto [tSkip, done] = skipSystem(i);
+
+                            if (done) {
+                                tSkipped += tSkip;
+
+                                SKIPInfo.emplace_back((int)i, tSkip, SKIPAARatio, EA, abs((getEnergy() - initialEnergy)/initialEnergy));
+                            } else
+                                passCanCheck = pass + tSkip/dt;
+                        }
+                }
+            }
+
+            for (nat i = 0; i < NUM; i++) {
+
+                nat j = (i + 1) % NUM;
+
+                VectorDd relpos = bodyfold.posList[j] - bodyfold.posList[i];
+                VectorDd relvel = bodyfold.velList[j] - bodyfold.velList[i];
+
+                // if both sim-bad condition AND getting worse AND body ratio allows it
+                if (relvel.squaredNorm() >= RsquaredConst * relpos.squaredNorm()
+                    && relpos.dot(relvel) <= 0)
+
+                    if (sow_drSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
+
+                        double tSkip = sowSystem((j+1)%NUM);
+
+                        if (sowCount % (long)((pow(10, ceil(log10(max(sowCount, (long)2)))))/10) == 0) {
+
+                            SOWInfo.emplace_back((int)((j+1)%NUM), sowCount, tSkip, relpos.squaredNorm(), relvel.squaredNorm(),
+                                                    (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm(), EA,
+                                                    abs((getEnergy() - initialEnergy)/initialEnergy));
+                        }
+                        sowCount++;
+
+                        tSkipped += tSkip;
+                        break;
+                    }
+            }
+
+            if (pass % SEECheckPer == 0) {
+
+                if (SEE_status == 0) {
+                    if ((SEE_body = SEE_0()) != NUM) {
+                        SEE_status = 1;
+                        SEE_time = pass*dt + tSkipped;
+
+                        //cout << "**********" << endl;
+                        //cout << "SEE body: " << (int)SEE_body << endl;
+                        //cout << "SEE time: " << SEE_time << endl;
+                        //cout << "STATUS: 1" << endl;
+                        //cout << "**********" << endl;
+
+                    }
+                }
+
+                if (SEE_status == 1) {
+                    SEE_status += SEE_1(SEE_body);
+
+                    //if (SEE_status == 2) {
+                    //    cout << "**********" << endl;
+                    //    cout << "STATUS: " << SEE_status << endl;
+                    //    cout << "**********" << endl;
+                    //}
+
+                }
+
+
+                if (SEE_status == 2) {
+
+                    if (SEE_2(SEE_body)) {
+                        SEE_AAratio = AARatio(SEE_body);
+                        SEE_status = 3;
+
+                        //cout << "**********" << endl;
+                        //cout << "SEEAARATIO: " << SEE_AAratio << endl;
+                        //cout << "STATUS: 2" << endl;
+                        //cout << "**********" << endl;
+                    }
+                }
+
+                if (SEE_status == 3) {
+
+                    if (SEE_3(SEE_body)) {
+                        SEEInfo.emplace_back((int)SEE_body, SEE_time, pass*dt + tSkipped - SEE_time, SEE_AAratio);
+                        SEE_status = 0;
+
+                        //cout << "**********" << endl;
+                        //cout << "delta t: " << pass*dt + tSkipped - SEE_time << endl;
+                        //cout << "STATUS: 0" << endl;
+                        //cout << "**********" << endl;
+                    }
+
+                }
+
+            }
+
+            doSymplecticIntegrator();
+
+            if (pass%EACheckPerPasses == 0) {
+                EA = abs((getEnergy() - initialEnergy)/initialEnergy);
+                EAMax = max(EA, EAMax);
+                if (EAMax > divMax) {
+                    time += pass*dt + tSkipped;
+                    return {-1, {0, 0}};
+                }
+            }
+
+            if (pass%haltCheckPerPasses == 0) {
+                tuple<int, int> result = haltCheck();
+                if (result != make_tuple(-1, -1)) {
+                    time += pass*dt + tSkipped;
+                    return {1, result};
+                }
+            }
+
+#if VISUALIZE
+            if (pass%savePosPerPasses == 0)
+                visuals.addToPaths(getDrawInfo());
+
+            if (pass%framePerPasses == 0 || (isSlower() && pass%(1 + framePerPasses/visuals.slowerBy) == 0)) {
+                visuals.visualizationLoop(getDrawInfo());
+                if (!isWindowOpen())
+                    break;
+            }
+#endif
+#if COMPARE_QUANTS
+            if (pass%comparePerPasses == 0) {
+                compare(pass);
+            }
+#endif
+
+        }
+
+        time += pass*dt + tSkipped;
+
+        EA = abs((getEnergy() - initialEnergy)/initialEnergy);
+        EAMax = max(EA, EAMax);
+        if (EAMax > divMax) {
+            time += pass*dt + tSkipped;
+            return {-1, {0, 0}};
+        }
+
+        if (pass%haltCheckPerPasses == 0) {
+            tuple<int, int> result = haltCheck();
+            if (result != make_tuple(-1, -1)) {
+                time += pass*dt + tSkipped;
+                return {1, result};
+            }
+        }
+
+        return {0, {0, 0}};
+    }
+
     //calculates important quantities
     Quantities quantities() {
 
@@ -882,6 +1094,42 @@ public:
 
     }
 
+    //calculates important quantities
+    static Quantities calcQuantities(const initialData &init) {
+
+        Bodyfold bodyfold{init};
+
+        VectorDd wpos = bodyfold.getWeightedPosition();
+        VectorDd mom = bodyfold.sumMomentum();
+        VectorAngd angMom = bodyfold.sumAngularMomentum();
+
+        double kin = bodyfold.sumKineticEnergy();
+        double pot = calcPotential(bodyfold);
+
+        return {wpos, mom, angMom, kin, pot};
+    };
+
+    static double calcPotential(const Bodyfold &bodyfold) {
+
+        double total = 0;
+
+        for (int i = 0; i < NUM; i++)
+            for (int j = i + 1; j < NUM; j++)
+            {
+                if (i != j)
+                    total += ((double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
+
+            }
+
+        return total;
+    }
+
+    double getEnergy() {
+        return bodyfold.sumKineticEnergy() + calcPotential();
+    }
+
 };
+
+#include "SubEscapeExcursion.h"
 
 #endif

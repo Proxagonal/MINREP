@@ -113,6 +113,10 @@ public:
         }
     }
 
+    double E() {
+        return quants.at(0);
+    }
+
 };
 
 #endif //MINREP_QUANTITIES_H

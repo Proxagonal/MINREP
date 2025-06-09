@@ -4,13 +4,15 @@ project(MINREP)
 set(CMAKE_CXX_STANDARD 23)
 
 add_executable(MINREP
-        main.cpp
+        #main.cpp
         Consts.h
+        SubEscapeExcursion.h
         #Solver.h
         #Visualizer.h
         #Quantities.h
         #Bodyfold.h
         #Kepler.h
+        Y_TRUE_APPLICATION.cpp
 )
 
 #remove flag
