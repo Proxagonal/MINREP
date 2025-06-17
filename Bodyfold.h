@@ -11,10 +11,6 @@
 using namespace std;
 using namespace Eigen;
 
-typedef vector<tuple<double, VectorDd, VectorDd>> initialData;
-typedef array<VectorDd, NUM> vData;
-typedef array<double, NUM> Data;
-
 
 struct Bodyfold {
 

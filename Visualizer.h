@@ -97,7 +97,7 @@ private:
     }
 
     // BREAKS FOR NUM =/= 3
-    array<int, NUM> bodiesOrdered(const array<VectorDd, NUM> &posList) {
+    array<int, NUM> bodiesOrdered(const vData &posList) {
 
         int a = 0, b = 1, c = 2;
 
@@ -106,6 +106,15 @@ private:
         if (effectiveRadius(posList[b]) > effectiveRadius(posList[c])) swap(b, c);
 
         return {a, b, c};
+    }
+
+    double getSystemRadius(vData &posList) {
+
+        double maximum = 0;
+        for (int i = 0; i < NUM; i++)
+            maximum = max(maximum, posList[i].norm());
+
+        return maximum;
     }
 
 
@@ -132,6 +141,9 @@ public:
             paths[i] = sf::VertexArray(sf::LinesStrip, 2*pathLength);
     }
 
+    Visualizer(int winX, int winY, vData &posList)
+        : Visualizer(winX, winY, getSystemRadius(posList)) {}
+
     bool isOpen() {
         return window.isOpen();
     }
@@ -139,7 +151,7 @@ public:
         return sf::Keyboard::isKeyPressed(sf::Keyboard::S);
     }
 
-    void visualizationLoop(const array<VectorDd, NUM> &posList) {
+    void visualizationLoop(const vData &posList) {
 
         wCount--;
         if (wCount > 0)
@@ -193,7 +205,7 @@ public:
         window.display();
     }
 
-    void addToPaths(const array<VectorDd, NUM> &posList) {
+    void addToPaths(const vData &posList) {
 
         if (trueLength < pathLength) {
             for (int i = 0; i < NUM; i++) {

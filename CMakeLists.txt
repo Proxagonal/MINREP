@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD 23)
 add_executable(MINREP
         main.cpp
         Consts.h
+        SEE.h
+        SOWSKIP.h
+        HALT.h
         #Solver.h
         #Visualizer.h
         #Quantities.h
