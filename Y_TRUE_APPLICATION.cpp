@@ -19,8 +19,7 @@
 #define R12 10
 #define R12_3 100
 
-#define PHASESAMPLE 400
-#define INCLINESAMPLE 400
+#define SAMPLE 30
 
 
 using namespace std;
@@ -212,7 +211,7 @@ int main() {
     auto* systemsLeft = static_cast<InterProcessCounter*>(mmap(nullptr, sizeof(InterProcessCounter), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
 
     // Initialize the counter to 0
-    systemsLeft->counter = PHASESAMPLE;
+    systemsLeft->counter = SAMPLE;
 
     // Initialize the mutex with the attribute to allow process sharing
     pthread_mutexattr_t attr;
@@ -265,81 +264,72 @@ int main() {
         pthread_mutex_unlock(&systemsLeft->mutex);
 
 
-        double phase = ((double)(left - 1))/PHASESAMPLE * 2 * M_PI;
+        double phase = Bodyfold::rand01() * 2 * M_PI;
+        double incline = M_PI/2;
 
-        for (int inc = 0; inc < INCLINESAMPLE + 1; inc++) {
-
-            double incline = ((double)inc)/INCLINESAMPLE * M_PI;
-
-            initialData sys = ergodicScatterRing3D(phase, incline);
+        initialData sys = ergodicScatterRing3D(phase, incline);
 
 
-            double energyBefore = Solver::calcQuantities(sys).E();
+        double energyBefore = Solver::calcQuantities(sys).E();
 
-            vector<tuple<int, double>> energyInfo;
-            vector<double> timeStopInfo;
-            vector<double> realTimeInfo;
+        vector<tuple<int, double>> energyInfo;
+        vector<double> timeStopInfo;
+        vector<double> realTimeInfo;
 
-            vector<tuple<int, double, double, double>> SEEInfo;
-            vector<tuple<int, int, double, double, double, double, double, double>> SOWInfo;
-            vector<tuple<int, double, double, double, double>> SKIPInfo;
+        vector<tuple<int, double, double, double>> SEEInfo;
+        vector<tuple<int, int, double, double, double, double, double, double>> SOWInfo;
+        vector<tuple<int, double, double, double, double>> SKIPInfo;
 
 
 
-            tuple<int, tuple<int, int>> status;
+        tuple<int, tuple<int, int>> status;
 
-            int powNow = powStart;
-            while (powNow > powOver) {
+        int powNow = powStart;
+        while (powNow > powOver) {
 
-                double dt = pow(10, powNow);
+            double dt = pow(10, powNow);
 
-                auto start = now();
-                Solver solver(T, dt, sys);
+            auto start = now();
+            Solver solver(T, dt, sys);
 
-                status = solver.run_TSPDT(energyBefore, MAX_ENERGY_DEVIATION);
+            status = solver.run_TSPDT(energyBefore, MAX_ENERGY_DEVIATION);
 
-                auto end = now();
+            auto end = now();
 
-                energyInfo.emplace_back(powNow, solver.EAMax);
-                timeStopInfo.emplace_back(solver.time);
-                realTimeInfo.emplace_back(toMils(start, end));
+            energyInfo.emplace_back(powNow, solver.EAMax);
+            timeStopInfo.emplace_back(solver.time);
+            realTimeInfo.emplace_back(toMils(start, end));
 
-                SEEInfo = solver.SEEInfo;
-                SOWInfo = solver.SOWInfo;
-                SKIPInfo = solver.SKIPInfo;
+            SEEInfo = solver.SEEInfo;
+            SOWInfo = solver.SOWInfo;
+            SKIPInfo = solver.SKIPInfo;
 
-                powNow += powJump;
-                if (get<0>(status) != -1)
-                    break;
-            }
-
-            systemResults << "SYSTEM " << threadCounter++ << ": \n";
-            systemResults << Bodyfold::toString(sys);
-            systemResults << "-------------" << endl;
-            systemResults << Solver::calcQuantities(sys).toString();
-
-            systemResults << "PHASE, INCLINE: " << phase << ", " << incline << endl;
-
-            systemResults << "POW MAX ENERGY DIV: " << printTupleVectorPyramid(energyInfo) << endl;
-            systemResults << "POW END TIME: " << printOneDoubleVectorPyramid(timeStopInfo) << endl;
-
-            systemResults << "POW REAL TIME: " << printOneDoubleVectorPyramid(realTimeInfo) << endl;
-            systemResults << "GOT EA: " << (get<0>(status) != -1) << endl;
-            systemResults << "HALTED: " << (get<0>(status) == 1) << endl;
-            systemResults << "HALT STATUS: " << intintTupleToString(get<1>(status)) << endl;
-
-            systemResults << "SEE INFO: " << printTupleVectorPyramid(SEEInfo) << endl;
-            systemResults << "SOW INFO: " << printTupleVectorPyramid(SOWInfo) << endl;
-            systemResults << "SKIP INFO: " << printTupleVectorPyramid(SKIPInfo) << endl;
-
-
-            systemResults.flush();
-
-
-
+            powNow += powJump;
+            if (get<0>(status) != -1)
+                break;
         }
 
+        systemResults << "SYSTEM " << threadCounter++ << ": \n";
+        systemResults << Bodyfold::toString(sys);
+        systemResults << "-------------" << endl;
+        systemResults << Solver::calcQuantities(sys).toString();
 
+        systemResults << "PHASE, INCLINE: " << phase << ", " << incline << endl;
+
+        systemResults << "POW MAX ENERGY DIV: " << printTupleVectorPyramid(energyInfo) << endl;
+        systemResults << "POW END TIME: " << printOneDoubleVectorPyramid(timeStopInfo) << endl;
+
+        systemResults << "POW REAL TIME: " << printOneDoubleVectorPyramid(realTimeInfo) << endl;
+        systemResults << "GOT EA: " << (get<0>(status) != -1) << endl;
+        systemResults << "HALTED: " << (get<0>(status) == 1) << endl;
+        systemResults << "HALT STATUS: " << intintTupleToString(get<1>(status)) << endl;
+
+        systemResults << "SEE INFO: " << printTupleVectorPyramid(SEEInfo) << endl;
+        systemResults << "SOW INFO: " << printTupleVectorPyramid(SOWInfo) << endl;
+        systemResults << "SKIP INFO: " << printTupleVectorPyramid(SKIPInfo) << endl;
+
+
+        systemResults.flush();
 
     }
 

@@ -989,18 +989,14 @@ public:
             if (pass%EACheckPerPasses == 0) {
                 EA = abs((getEnergy() - initialEnergy)/initialEnergy);
                 EAMax = max(EA, EAMax);
-                if (EAMax > divMax) {
-                    time += pass*dt + tSkipped;
-                    return {-1, {0, 0}};
-                }
+                if (EAMax > divMax)
+                    break;
             }
 
             if (pass%haltCheckPerPasses == 0) {
                 tuple<int, int> result = haltCheck();
-                if (result != make_tuple(-1, -1)) {
-                    time += pass*dt + tSkipped;
-                    return {1, result};
-                }
+                if (result != make_tuple(-1, -1))
+                    break;
             }
 
 #if VISUALIZE
@@ -1025,18 +1021,19 @@ public:
 
         EA = abs((getEnergy() - initialEnergy)/initialEnergy);
         EAMax = max(EA, EAMax);
-        if (EAMax > divMax) {
-            time += pass*dt + tSkipped;
+        if (EAMax > divMax)
             return {-1, {0, 0}};
+
+
+        tuple<int, int> result = haltCheck();
+        if (result != make_tuple(-1, -1)) {
+
+            if (get<1>(result) == 1 && SEE_status == 2)
+                time = SEE_time;
+
+            return {1, result};
         }
 
-        if (pass%haltCheckPerPasses == 0) {
-            tuple<int, int> result = haltCheck();
-            if (result != make_tuple(-1, -1)) {
-                time += pass*dt + tSkipped;
-                return {1, result};
-            }
-        }
 
         return {0, {0, 0}};
     }
