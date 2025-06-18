@@ -429,6 +429,8 @@ bool Solver::checkDAR(nat far) {
 
     double ellipseMajor_ud = -mu_ud/epsilon_ud;
 
+    SKIPAARatio = (-muWholeSystem/epsilonWholeSystem)/ellipseMajor_ud;
+
     // This means the approximation will not be good at apoapsis
     // Multiply by apo^2 for no division
     return (skip_darSquared * ellipseMajor_ud * ellipseMajor_ud
