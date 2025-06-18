@@ -25,9 +25,12 @@ inline bool Solver::isFarWithRatio(nat i, double ratio) {
     nat dos = (i+2)%NUM;
 
     double smallDistSquared = (bodyfold.posList[dos] - bodyfold.posList[uno]).squaredNorm();
-    double bigDistSquared = (bodyfold.posList[i] - bodyfold.posList[dos]).squaredNorm();
+    double bigDistSquared1 = (bodyfold.posList[i] - bodyfold.posList[dos]).squaredNorm();
+    double bigDistSquared2 = (bodyfold.posList[i] - bodyfold.posList[uno]).squaredNorm();
 
-    return (ratio*ratio * smallDistSquared < bigDistSquared);
+
+    return (ratio*ratio * smallDistSquared < bigDistSquared1
+        && ratio*ratio * smallDistSquared < bigDistSquared2);
 }
 
 
@@ -64,6 +67,12 @@ inline int Solver::see_1(nat &far) {
 
         VectorDd MassMultipliedDeltaPosWholeSystem = (bodyfold.massList[uno] + bodyfold.massList[dos])*bodyfold.posList[far]
                                                     - (bodyfold.massList[uno]*bodyfold.posList[uno] + bodyfold.massList[dos]*bodyfold.posList[dos]);
+
+
+        //cout << (bodyfold.posList[uno] - bodyfold.posList[dos]).norm()
+        //<< ", " << (bodyfold.posList[uno] - bodyfold.posList[far]).norm()
+        //<< ", " << (bodyfold.posList[dos] - bodyfold.posList[far]).norm() << endl;
+        //cout << ellipseMajor_ud << endl;
 
         // This means the approximation will not be good at apoapsis
         // Multiply by apo^2 for no division

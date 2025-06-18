@@ -32,24 +32,24 @@ int main() {
 
     string str = R"(
 Body #0:
-Mass: 1.636771220589853
-Position: 40 -60 0
-Velocity: 2.3 1 0
+Mass: 0.61430970922919093
+Position: -4.9593851585494564  3.4539400500782591 -7.5978797155881903
+Velocity: -0.034401772779428547   0.24339594870877115   -0.1813595358849649
 Body #1:
-Mass: 1.557730835697107
-Position: 20 -55 0
-Velocity: -3 0 0
+Mass: 0.55797520611284823
+Position: -9.7091633110245628  13.326286446326023  4.3819676106913104
+Velocity: 0.89095773333884043  0.2054165389652497 -1.4324872920473182
 Body #2:
-Mass: 1.242946611213134
-Position: 20 -60 0
-Velocity:  0 0 0
+Mass: 1.3589413182326489
+Position:  6.2284299850035092 -7.0330677316446559  1.6354068922887561
+Velocity: -0.35027191790996115 -0.19437029885182538  0.67015646928293149
 )";
     initialData init = Bodyfold::stringToInitialData(str);
     init = Bodyfold::transformToCOMSystem(init);
 
-    bool RAND = true;
+    bool RAND = false;
     init = RAND ? Bodyfold::generateRandomCOM() : init;
-    Solver solver(1000000, pow(10, -3), init);
+    Solver solver(100000, pow(10, -3), init);
 
     auto start = now();
 

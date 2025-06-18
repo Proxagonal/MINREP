@@ -12,7 +12,7 @@ using namespace Eigen;
 
 #define VISUALIZE true
 #define COMPARE_QUANTS true
-#define HALTCHECK true
+#define HALTCHECK false
 #define SOW true
 #define SKIP true
 #define SEE true
@@ -123,7 +123,7 @@ private:
 
     tuple<int, int> haltCheck();
 
-    inline tuple<nat, nat> Solver::escapeCheck(const vector<double> &distSquares);
+    inline tuple<nat, nat> escapeCheck(const vector<double> &distSquares);
 
     // 0: Undecided, 1: Escape, 2: Locked?
     // NOTE: Can save many divisions, but this gets calculated so infrequently that it doesn't matter.
@@ -167,7 +167,7 @@ private:
 #if SKIP
 
     const int skip_checkPer = 1/dt;
-    const double skippingDistanceApoapsisRatio = 500;
+    const double skippingDistanceApoapsisRatio = 200;
     const long skip_minPasses = pow(10, 7); // About 1 real sec
     const double skip_minTime = skip_minPasses*dt;
 
@@ -182,8 +182,8 @@ private:
 
 #if SEE
     int see_checkPer = 1/(100*dt);
-    static const int see_ratio = 5;
-    static const int see_detectRatio = 3;
+    static const int see_ratio = 4;
+    static const int see_detectRatio = 2;
 
     inline bool isGoingAway(nat far);
     inline bool isFarWithRatio(nat i, double ratio);
@@ -193,7 +193,7 @@ private:
     inline int see_3(nat &far);
     inline long double AARatio(nat far);
 
-    array<int(Solver::*)(nat&), 4> see_operator = {see_0, see_1, see_2, see_3};
+    array<int(Solver::*)(nat&), 4> see_operator = {&Solver::see_0, &Solver::see_1, &Solver::see_2, &Solver::see_3};
 #endif
 
 public:
@@ -225,14 +225,17 @@ public:
 
 #if SOW || SKIP
         long double tSkipped = 0;
+#define TIME() (pass*dt + tSkipped)
+#else
+#define TIME() (pass*dt)
 #endif
 
 #if SEE
         int see_status = 0;
-        int see_body;
+        nat see_body;
 #endif
 
-        for (long pass = 0; pass*dt < T; pass++) {
+        for (long pass = 0; TIME() < T; pass++) {
 
 #if SKIP
             if (pass % skip_checkPer == 0 && pass >= passCanCheck) {
@@ -275,8 +278,21 @@ public:
 #endif
 
 #if SEE
-            if (pass % see_checkPer == 0)
-                see_status = see_operator[see_status](see_body);
+            if (pass % see_checkPer == 0) {
+                int newStatus;
+                switch(see_status) {
+                    case 0: newStatus = see_0(see_body); break;
+                    case 1: newStatus = see_1(see_body); break;
+                    case 2: newStatus = see_2(see_body); break;
+                    case 3: newStatus = see_3(see_body); break;
+                }
+
+                if (see_status != newStatus) {
+                    see_status = newStatus;
+                    cout << "STATUS: " << see_status << endl;
+                }
+            }
+
 #endif
 
 
@@ -301,7 +317,7 @@ public:
 #endif
 #if COMPARE_QUANTS
             if (pass%compare_checkPer == 0) {
-                compare(pass);
+                compare(TIME());
             }
 #endif
         }
@@ -321,9 +337,9 @@ public:
     };
 
 #if COMPARE_QUANTS
-    void compare(long pass) {
+    void compare(const double time) {
         cout << "----------" << endl;
-        cout << "TIME: " << pass*dt << endl;
+        cout << "TIME: " << time << endl;
         Quantities::compare(quantities(), initialQuants);
     }
 #endif

@@ -37,11 +37,11 @@ inline tuple<int, int> Solver::haltCheck() {
 
 inline tuple<nat, nat> Solver::escapeCheck(const vector<double> &distSquares) {
 
-    if (distSquares.at(0) > edrSquared * distSquares.at(1))
+    if (distSquares.at(0) > halt_edrSquared * distSquares.at(1))
         return {0, confirmEscape(distSquares, 0)};
-    if (edrSquared * distSquares.at(0) < distSquares.at(1))
+    if (halt_edrSquared * distSquares.at(0) < distSquares.at(1))
         return {2, confirmEscape(distSquares, 2)};
-    if (edrSquared * distSquares.at(2) < distSquares.at(1))
+    if (halt_edrSquared * distSquares.at(2) < distSquares.at(1))
         return {1, confirmEscape(distSquares, 1)};
 
     return {-1, -1};
@@ -70,7 +70,7 @@ inline nat Solver::confirmEscape(const vector<double> &distSquares, const nat i)
 
     // This means the approximation will not be good at apoapsis
     // Multiply by eps^2 for no division
-    if (edrSquared * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
+    if (halt_edrSquared * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
         return 0;
 
     VectorDd binaryCOM = (mu*bodyfold.posList[uno] + md*bodyfold.posList[dos])/(mu + md);
