@@ -11,7 +11,7 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS true
+#define COMPARE_QUANTS false
 #define HALTCHECK false
 #define SOW true
 #define SKIP true
@@ -231,6 +231,7 @@ public:
 #endif
 
 #if SEE
+        double see_startTime;
         int see_status = 0;
         nat see_body;
 #endif
@@ -279,17 +280,26 @@ public:
 
 #if SEE
             if (pass % see_checkPer == 0) {
-                int newStatus;
                 switch(see_status) {
-                    case 0: newStatus = see_0(see_body); break;
-                    case 1: newStatus = see_1(see_body); break;
-                    case 2: newStatus = see_2(see_body); break;
-                    case 3: newStatus = see_3(see_body); break;
-                }
 
-                if (see_status != newStatus) {
-                    see_status = newStatus;
-                    cout << "STATUS: " << see_status << endl;
+                    case 0: see_status = see_0(see_body);
+                        if (see_status == 1) {
+                            cout << "TIME" << endl;
+                            see_startTime = TIME();
+                        }
+                        break;
+
+                    case 1: see_status = see_1(see_body);
+                        if (see_status == 2)
+                            cout << "SEE OFFICIAL" << endl;
+                        break;
+
+                    case 2: see_status = see_2(see_body); break;
+
+                    case 3: see_status = see_3(see_body);
+                        if (see_status == 0)
+                            cout << "SEE TIME: " << TIME() - see_startTime << endl;;
+                        break;
                 }
             }
 
