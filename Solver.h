@@ -11,11 +11,11 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS false
+#define COMPARE_QUANTS trye
 #define HALTCHECK true
 #define SOW true
 #define SKIP true
-#define SEE true
+#define SEE false
 
 
 #define ORDER 4
@@ -422,7 +422,7 @@ public:
                     }
             }
 
-
+#if SEE
             if (pass % see_checkPer == 0) {
                 switch(see_status) {
 
@@ -436,7 +436,7 @@ public:
                     case 2: see_status = see_2(see_body);
                         if (see_status == 3) {
                             see_AARatio = AARatio(see_body);
-                            cout << "SEE" << endl;
+                            //cout << "SEE" << endl;
                         }
                         break;
 
@@ -446,6 +446,7 @@ public:
                         break;
                 }
             }
+#endif
 
 
             doSymplecticIntegrator();

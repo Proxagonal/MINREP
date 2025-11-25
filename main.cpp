@@ -6,9 +6,9 @@
 using namespace std;
 using namespace Eigen;
 
-#define M1 17.5
+#define M1 20
 #define M2 15
-#define M3 12.5
+#define M3 10
 #define R12 10
 #define R12_3 100
 
@@ -43,6 +43,8 @@ Vector3d rotateAroundAxis(const Vector3d& U, const Vector3d& u, double theta) {
          + axis * (axis.dot(u)) * (1 - cos_theta);
 }
 
+
+#if DIM == 3
 static initialData ergodicScatterRing3D(double innerPhase, double incline) {
     double v12 = sqrt(G * (M1 + M2) / R12);
 
@@ -53,6 +55,29 @@ static initialData ergodicScatterRing3D(double innerPhase, double incline) {
     auto &b2 = centered[1];
 
     initialData init{b1, b2, {M3, rotateAroundAxis({0, 1, 0}, {R12_3, 0, 0}, incline - M_PI/2), {0, 0, 0}}};
+    init = Bodyfold::transformToCOMSystem(init);
+
+    return init;
+}
+#endif
+
+inline static Vector2d rotate(Vector2d v, double angle) {
+    double cosA = cos(angle);
+    double sinA = sin(angle);
+
+    return {v.x() * cosA - v.y() * sinA, v.x() * sinA + v.y() * cosA};
+}
+
+static initialData ergodicScatterRing(double innerPhase) {
+    double v12 = sqrt(G * (M1 + M2) / R12);
+
+    initialData circularInit{{M1, {0, 0}, {0, 0}},
+        {M2, rotate({0, R12}, innerPhase), rotate({-v12, 0}, innerPhase)}};
+    auto centered = Bodyfold::transformToCOMSystem(circularInit);
+    auto &b1 = centered[0];
+    auto &b2 = centered[1];
+
+    initialData init{b1, b2, {M3, {R12_3, 0}, {-1, -1}}};
     init = Bodyfold::transformToCOMSystem(init);
 
     return init;
@@ -78,7 +103,11 @@ Velocity:  0 0 0
     initialData init = Bodyfold::stringToInitialData(str);
     init = Bodyfold::transformToCOMSystem(init);
 
-    init = ergodicScatterRing3D(rand01()*2*M_PI, rand01()*M_PI);
+    init = ergodicScatterRing(2*M_PI*rand01());
+
+    cout << "Energy: " << Solver::calcQuantities(init).E() << endl;
+    cout << "Ang: " << Solver::calcQuantities(init).angMom.transpose() << endl;
+
 
     bool RAND = false;
     init = RAND ? Bodyfold::generateRandomCOM() : init;
@@ -86,9 +115,7 @@ Velocity:  0 0 0
 
     auto start = now();
 
-    auto t = solver.run_STATS(Solver::calcQuantities(init).E(), pow(10, -5));
-    cout << get<0>(t) << endl;
-    cout << get<0>(get<1>(t)) << ", " << get<1>(get<1>(t)) << endl;
+    solver.run();
 
     auto end = now();
 

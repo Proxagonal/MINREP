@@ -13,13 +13,13 @@
 #define COMPS 12
 #define PATHSTART "/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
 
-#define M1 17.5
+#define M1 20
 #define M2 15
-#define M3 12.5
+#define M3 10
 #define R12 10
 #define R12_3 100
 
-#define SAMPLE 30
+#define SAMPLE 200000
 
 
 using namespace std;
@@ -179,7 +179,7 @@ inline static Vector2d rotate(Vector2d v, double angle) {
 
 Vector3d rotateAroundAxis(const Vector3d& U, const Vector3d& u, double theta) {
     // Normalize the axis of rotation
-    Eigen::Vector3d axis = U.normalized();
+    Vector3d axis = U.normalized();
 
     // Rodrigues' rotation formula:
     // u_rot = u * cosθ + (axis × u) * sinθ + axis * (axis • u) * (1 - cosθ)
@@ -191,16 +191,47 @@ Vector3d rotateAroundAxis(const Vector3d& U, const Vector3d& u, double theta) {
          + axis * (axis.dot(u)) * (1 - cos_theta);
 }
 
-static initialData ergodicScatterRing3D(double innerPhase, double incline) {
+Vector2d rotateAroundAxis2(const Vector3d& U, const Vector3d& u, double theta) {
+    // Normalize the axis of rotation
+    Eigen::Vector3d axis = U.normalized();
+
+    // Rodrigues' rotation formula:
+    // u_rot = u * cosθ + (axis × u) * sinθ + axis * (axis • u) * (1 - cosθ)
+    double cos_theta = cos(theta);
+    double sin_theta = sin(theta);
+
+    Vector3d v3d = u * cos_theta
+         + axis.cross(u) * sin_theta
+         + axis * (axis.dot(u)) * (1 - cos_theta);
+
+    return {v3d.x(), v3d.y()};
+}
+
+//static initialData ergodicScatterRing3D(double innerPhase, double incline) {
+//    double v12 = sqrt(G * (M1 + M2) / R12);
+//
+//    initialData circularInit{{M1, {0, 0, 0}, {0, 0, 0}},
+//        {M2, rotateAroundAxis({0, 0, 1}, {0, R12, 0}, innerPhase), rotateAroundAxis({0, 0, 1}, {-v12, 0, 0}, innerPhase)}};
+//    auto centered = Bodyfold::transformToCOMSystem(circularInit);
+//    auto &b1 = centered[0];
+//    auto &b2 = centered[1];
+//
+//    initialData init{b1, b2, {M3, rotateAroundAxis({0, 1, 0}, {R12_3, 0, 0}, incline - M_PI/2), {0, 0, 0}}};
+//    init = Bodyfold::transformToCOMSystem(init);
+//
+//    return init;
+//}
+
+static initialData ergodicScatterRing(double innerPhase) {
     double v12 = sqrt(G * (M1 + M2) / R12);
 
-    initialData circularInit{{M1, {0, 0, 0}, {0, 0, 0}},
-        {M2, rotateAroundAxis({0, 0, 1}, {0, R12, 0}, innerPhase), rotateAroundAxis({0, 0, 1}, {-v12, 0, 0}, innerPhase)}};
+    initialData circularInit{{M1, {0, 0}, {0, 0}},
+        {M2, rotateAroundAxis2({0, 0, 1}, {0, R12, 0}, innerPhase), rotateAroundAxis2({0, 0, 1}, {-v12, 0, 0}, innerPhase)}};
     auto centered = Bodyfold::transformToCOMSystem(circularInit);
     auto &b1 = centered[0];
     auto &b2 = centered[1];
 
-    initialData init{b1, b2, {M3, rotateAroundAxis({0, 1, 0}, {R12_3, 0, 0}, incline - M_PI/2), {0, 0, 0}}};
+    initialData init{b1, b2, {M3, {R12_3, 0}, {0, 0}}};
     init = Bodyfold::transformToCOMSystem(init);
 
     return init;
@@ -214,6 +245,17 @@ mode_t mode = 0666 | S_IRWXU | S_IRWXG | S_IRWXO;
 const double MAX_ENERGY_DEVIATION = pow(10, -5); //6?-----------------------------
 
 int main() {
+
+    initialData sys = ergodicScatterRing(1);
+
+    double energyBefore = Solver::calcQuantities(sys).E();
+
+    cout << setprecision (14) << energyBefore << endl;
+    cout << setprecision (14) << Solver::calcQuantities(sys).angMom.transpose() << endl;
+
+
+
+    return 0;
 
     string unixTime = to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     string path = PATHSTART + ("_" + unixTime + "/");
@@ -276,9 +318,8 @@ int main() {
 
 
         double phase = rand01() * 2 * M_PI;
-        double incline = rand01() * M_PI;
 
-        initialData sys = ergodicScatterRing3D(phase, incline);
+        initialData sys = ergodicScatterRing(phase);
 
 
         double energyBefore = Solver::calcQuantities(sys).E();
@@ -325,7 +366,7 @@ int main() {
         systemResults << "-------------" << endl;
         systemResults << Solver::calcQuantities(sys).toString();
 
-        systemResults << "PHASE, INCLINE: " << phase << ", " << incline << endl;
+        systemResults << "PHASE: " << phase << endl;
 
         systemResults << "POW MAX ENERGY DIV: " << printTupleVectorPyramid(energyInfo) << endl;
         systemResults << "POW END TIME: " << printOneDoubleVectorPyramid(timeStopInfo) << endl;

@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 23)
 add_executable(MINREP
         main.cpp
         #Y_TRUE_APPLICATION.cpp
+        #trystuff.cpp
         Consts.h
         SEE.h
         SOWSKIP.h
