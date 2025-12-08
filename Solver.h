@@ -11,8 +11,8 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS false
-#define HALTCHECK false
+#define COMPARE_QUANTS true
+#define HALTCHECK true
 #define SOW true
 #define SKIP true
 #define SEE true
@@ -97,6 +97,10 @@ private:
         return total;
     }
 
+    double sqrdist(nat i);
+    bool isForceHierarchy(nat i, double FR);
+    bool Solver::isForceHierarchy(nat i, double FR, double smallsqr, double bigsqr);
+
 #if VISUALIZE
 
     Visualizer visuals;
@@ -119,17 +123,17 @@ private:
 
     const int halt_checkPer = 1/dt;
     static const int escapeDistanceRatio = 10;
-    static const int halt_edrSquared = escapeDistanceRatio*escapeDistanceRatio;
+    static const int halt_FR = escapeDistanceRatio*escapeDistanceRatio;
 
     tuple<int, int> haltCheck();
 
-    inline tuple<nat, nat> escapeCheck(const vector<double> &distSquares);
+    inline tuple<nat, nat> escapeCheck();
 
     // 0: Undecided, 1: Escape, 2: Locked?
     // NOTE: Can save many divisions, but this gets calculated so infrequently that it doesn't matter.
-    nat confirmEscape(const vector<double> &distSquares, const nat i);
+    nat confirmEscape(const nat i);
 
-    bool isDissolved(const vector<double> &distSquares);
+    bool isDissolved();
 
 #endif
 
@@ -157,36 +161,41 @@ private:
 #endif
 #if SOW
 
-    static constexpr double distanceToLengthPerDt_MAX = 2.8;
+    static constexpr double distanceToLengthPerDt_MAX = 2.8; //NEED FORCE MOD
     const double RsquaredConst = 1/pow(distanceToLengthPerDt_MAX*dt, 2);
     static constexpr double sowingDistanceRatio = pow(10, 2.2);
-    static constexpr double sow_drSquared = sowingDistanceRatio*sowingDistanceRatio;
+    static constexpr double sow_FR = sowingDistanceRatio*sowingDistanceRatio;
 
     long double sowSystem(nat far);
 #endif
 #if SKIP
 
     const int skip_checkPer = 1/dt;
-    const double skippingDistanceApoapsisRatio = 200;
+    const double skippingDistanceApoapsisRatio = 200; //FORCE
     const long skip_minPasses = pow(10, 7); // About 1 real sec
     const double skip_minTime = skip_minPasses*dt;
 
-    const double skip_darSquared = skippingDistanceApoapsisRatio*skippingDistanceApoapsisRatio;
+    const double skip_dafr = skippingDistanceApoapsisRatio*skippingDistanceApoapsisRatio;
 
     // (Skip time, whether its big enough)
     tuple<long double, bool> skipSystem(nat far);
 
-    bool checkDAR(nat far);
+    bool checkAFR(nat far);
 
 #endif
 
 #if SEE
     int see_checkPer = 1/(100*dt);
+
     static const int see_ratio = 4;
     static const int see_detectRatio = 2;
 
+    static const int see_FR = see_ratio*see_ratio;
+    static const int see_below_FR = (see_ratio-1)*(see_ratio-1);
+    static const int see_detectFR = see_detectRatio*see_detectRatio;
+
     inline bool isGoingAway(nat far);
-    inline bool isFarWithRatio(nat i, double ratio);
+    inline bool isWeakWithRatio(nat i, double FR);
     inline int see_0(nat &far);
     inline int see_1(nat &far);
     inline int see_2(nat &far);
@@ -245,11 +254,12 @@ public:
                     nat uno = (i+1)%NUM;
                     nat dos = (i+2)%NUM;
 
-                    double smallDistSquared = (bodyfold.posList[dos] - bodyfold.posList[uno]).squaredNorm();
-                    double bigDistSquared = (bodyfold.posList[i] - bodyfold.posList[dos]).squaredNorm();
+                    double smallDistSquared = sqrdist(uno);
+                    double bigDistSquared = sqrdist(dos);
 
+                    if ()
                     if (skip_darSquared*smallDistSquared < bigDistSquared)
-                        if (checkDAR(i)) {
+                        if (checkAFR(i)) {
 
                             auto [tSkip, done] = skipSystem(i);
                             done ? (tSkipped += tSkip) : (passCanCheck = pass + tSkip/dt);
@@ -270,7 +280,7 @@ public:
                 if (relvel.squaredNorm() >= RsquaredConst * relpos.squaredNorm()
                     && relpos.dot(relvel) <= 0)
 
-                    if (sow_drSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
+                    if (isForceHierarchy(i, sow_FR)) {
                         tSkipped += sowSystem((j+1)%NUM);
                         cout << "-----------------" << " CUT " << "-----------------" << endl;
                         break;
@@ -372,6 +382,19 @@ public:
     }
 
 };
+
+inline double Solver::sqrdist(nat i) {
+    return (bodyfold.posList[i] - bodyfold.posList[(i+1)%NUM]).squaredNorm();
+}
+
+// If true, i and i+1 are a tight binary with respect to i+2
+inline bool Solver::isForceHierarchy(nat i, double FR) {
+    return (bodyfold.massList[(i+1)%NUM] * sqrdist((i+2)%NUM) > FR * bodyfold.massList[(i+2)%NUM] * sqrdist(i%NUM));
+}
+
+inline bool Solver::isForceHierarchy(nat i, double FR, double smallsqr, double bigsqr) {
+    return (bodyfold.massList[(i+1)%NUM] * bigsqr > FR * bodyfold.massList[(i+2)%NUM] * smallsqr);
+}
 
 #include "HALT.h"
 #include "SOWSKIP.h"

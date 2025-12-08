@@ -19,18 +19,17 @@ inline bool Solver::isGoingAway(nat far) {
     return (MassMultipliedDeltaPosWholeSystem.dot(MassMultipliedDeltaVelWholeSystem) > 0);
 }
 
-inline bool Solver::isFarWithRatio(nat i, double ratio) {
+inline bool Solver::isWeakWithRatio(nat i, double FR) {
 
     nat uno = (i+1)%NUM;
     nat dos = (i+2)%NUM;
 
-    double smallDistSquared = (bodyfold.posList[dos] - bodyfold.posList[uno]).squaredNorm();
-    double bigDistSquared1 = (bodyfold.posList[i] - bodyfold.posList[dos]).squaredNorm();
-    double bigDistSquared2 = (bodyfold.posList[i] - bodyfold.posList[uno]).squaredNorm();
+    double smallDistSquared = sqrdist(uno);
+    double bigDistSquared1 = sqrdist(dos);
+    double bigDistSquared2 = sqrdist(i);
 
-
-    return (ratio*ratio * smallDistSquared < bigDistSquared1
-        && ratio*ratio * smallDistSquared < bigDistSquared2);
+    return (bodyfold.massList[(i+2)%NUM] * bigDistSquared2 > FR * bodyfold.massList[i%NUM] * smallDistSquared)
+            && (bodyfold.massList[(i+1)%NUM] * bigDistSquared1 > FR * bodyfold.massList[i%NUM] * smallDistSquared);
 }
 
 
@@ -38,7 +37,7 @@ inline int Solver::see_0(nat &far) {
 
     for (far = 0; far < NUM; far++)
 
-        if (isFarWithRatio(far, see_detectRatio) && isGoingAway(far))
+        if (isWeakWithRatio(far, see_detectFR) && isGoingAway(far))
             return 1;
 
     return 0;
@@ -46,13 +45,13 @@ inline int Solver::see_0(nat &far) {
 
 inline int Solver::see_1(nat &far) {
 
-    if (!isGoingAway(far) || !isFarWithRatio(far, see_detectRatio))
+    if (!isGoingAway(far) || !isWeakWithRatio(far, see_detectFR))
         return 0;
 
     nat uno = (far+1)%NUM;
     nat dos = (far+2)%NUM;
 
-    if (isFarWithRatio(far, see_ratio - 1)) {
+    if (isWeakWithRatio(far, see_below_FR)) {
 
         double mu_ud = G*(bodyfold.massList[uno] + bodyfold.massList[dos]);
         VectorDd velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
@@ -76,8 +75,7 @@ inline int Solver::see_1(nat &far) {
 
         // This means the approximation will not be good at apoapsis
         // Multiply by apo^2 for no division
-        if (pow(see_ratio * ellipseMajor_ud * (bodyfold.massList[uno] + bodyfold.massList[dos]), 2)
-            < MassMultipliedDeltaPosWholeSystem.squaredNorm())
+        if (isForceHierarchy(uno, see_FR, pow(ellipseMajor_ud * (bodyfold.massList[uno] + bodyfold.massList[dos]), 2), MassMultipliedDeltaPosWholeSystem.squaredNorm()))
             return 2;
         return 1;
     }
@@ -94,7 +92,7 @@ inline int Solver::see_2(nat &far) {
 
 inline int Solver::see_3(nat &far) {
 
-    if (isFarWithRatio(far, see_detectRatio))
+    if (isWeakWithRatio(far, see_detectFR))
         return 3;
     return 0;
 }

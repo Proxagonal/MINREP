@@ -5,19 +5,10 @@
 
 #include "Solver.h"
 
-
 inline tuple<int, int> Solver::haltCheck() {
 
-    vector<double> distSquares;
-
-    nat j;
-    for (nat i = 0; i < NUM; i++) {
-        j = (i + 1) % NUM;
-        distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
-    }
-
     nat escapeCheckBody, escapeCheckStatus;
-    tie(escapeCheckBody, escapeCheckStatus) = escapeCheck(distSquares);
+    tie(escapeCheckBody, escapeCheckStatus) = escapeCheck();
 
     if (escapeCheckStatus == 1)
         return {escapeCheckBody, escapeCheckStatus};
@@ -26,7 +17,7 @@ inline tuple<int, int> Solver::haltCheck() {
     //    return {-1, -1};
     //}
 
-    if (isDissolved(distSquares))
+    if (isDissolved())
         return {-1, 3};
 
     // To Be Determined
@@ -35,21 +26,21 @@ inline tuple<int, int> Solver::haltCheck() {
 }
 
 
-inline tuple<nat, nat> Solver::escapeCheck(const vector<double> &distSquares) {
+inline tuple<nat, nat> Solver::escapeCheck() {
 
-    if (distSquares.at(0) > halt_edrSquared * distSquares.at(1))
-        return {0, confirmEscape(distSquares, 0)};
-    if (halt_edrSquared * distSquares.at(0) < distSquares.at(1))
-        return {2, confirmEscape(distSquares, 2)};
-    if (halt_edrSquared * distSquares.at(2) < distSquares.at(1))
-        return {1, confirmEscape(distSquares, 1)};
+    if (SQRDIST(0) > halt_edrSquared * SQRDIST(1))
+        return {0, confirmEscape(0)};
+    if (halt_edrSquared * SQRDIST(0) < SQRDIST(1))
+        return {2, confirmEscape(2)};
+    if (halt_edrSquared * SQRDIST(2) < SQRDIST(1))
+        return {1, confirmEscape(1)};
 
     return {-1, -1};
 }
 
 // 0: Undecided, 1: Escape, 2: Locked?
 // NOTE: Can save many divisions, but this gets calculated so infrequently that it doesn't matter.
-inline nat Solver::confirmEscape(const vector<double> &distSquares, const nat i) {
+inline nat Solver::confirmEscape(const nat i) {
 
     int uno = (i + 1) % NUM;
     int dos = (i + 2) % NUM;
@@ -60,7 +51,7 @@ inline nat Solver::confirmEscape(const vector<double> &distSquares, const nat i)
     VectorDd velDiff_ud = bodyfold.velList[dos] - bodyfold.velList[uno];
 
 
-    double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / sqrt(distSquares[uno]);
+    double epsilon_ud = velDiff_ud.squaredNorm()/2 - mu_ud / sqrt(sqrdist(uno));
 
     // This means the binary isn't bound
     if (epsilon_ud >= 0)
@@ -70,7 +61,7 @@ inline nat Solver::confirmEscape(const vector<double> &distSquares, const nat i)
 
     // This means the approximation will not be good at apoapsis
     // Multiply by eps^2 for no division
-    if (halt_edrSquared * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
+    if (halt_edrSquared * ellipseMajor_ud * ellipseMajor_ud > sqrdist(i))
         return 0;
 
     VectorDd binaryCOM = (mu*bodyfold.posList[uno] + md*bodyfold.posList[dos])/(mu + md);
@@ -97,7 +88,7 @@ inline nat Solver::confirmEscape(const vector<double> &distSquares, const nat i)
 }
 
 
-inline bool Solver::isDissolved(const vector<double> &distSquares) {
+inline bool Solver::isDissolved() {
 
     // for index i, sum of max veloicities of j, k that can be gained from potential energy of i
     vector<double> c1_Plus_c2(NUM, 0);
@@ -105,7 +96,7 @@ inline bool Solver::isDissolved(const vector<double> &distSquares) {
     for (nat i = 0; i < NUM; i++) {
         nat j = (i + 1) % NUM;
 
-        const double i_j_Potential_noMass = G/sqrt(distSquares[i]);
+        const double i_j_Potential_noMass = G/sqrt(SQRDIST(i));
 
         //2*(Uij/mimj)*mi = 2*Uij/mj
         c1_Plus_c2[i] += sqrt(2*i_j_Potential_noMass*bodyfold.massList[i]);
@@ -122,7 +113,7 @@ inline bool Solver::isDissolved(const vector<double> &distSquares) {
         VectorDd relPos = bodyfold.posList[dos] - bodyfold.posList[uno];
         VectorDd relVel = bodyfold.velList[dos] - bodyfold.velList[uno];
 
-        const double r12 = sqrt(distSquares[uno]);
+        const double r12 = sqrt(SQRDIST(uno));
 
         // If anything going towards anything else: no.
         // New: In worst case, both velocities may decrease by as much as 2U/m in the direction of the other body. Checks it.

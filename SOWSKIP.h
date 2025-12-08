@@ -393,7 +393,7 @@ tuple<long double, bool> Solver::skipSystem(nat far) {
     return {T, true};
 }
 
-bool Solver::checkDAR(nat far) {
+bool Solver::checkAFR(nat far) {
 
     int uno = (far + 1) % NUM;
     int dos = (far + 2) % NUM;
@@ -429,10 +429,8 @@ bool Solver::checkDAR(nat far) {
 
     double ellipseMajor_ud = -mu_ud/epsilon_ud;
 
-    // This means the approximation will not be good at apoapsis
-    // Multiply by apo^2 for no division
-    return (skip_darSquared * ellipseMajor_ud * ellipseMajor_ud
-            < (bodyfold.posList[far] - innerCOM).squaredNorm());
+    // This tests if the approximation will be good at apoapsis
+    return isForceHierarchy(uno, skip_dafr, ellipseMajor_ud*ellipseMajor_ud, (bodyfold.posList[far] - innerCOM).squaredNorm());
 }
 
 #endif
