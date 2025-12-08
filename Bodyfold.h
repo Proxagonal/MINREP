@@ -50,7 +50,7 @@ public:
     vData posList;
     vData velList;
     vData accList;
-    Data massList;
+    Vector3d massList;
 
     Bodyfold(const initialData& init) {
 

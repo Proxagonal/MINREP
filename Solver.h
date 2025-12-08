@@ -19,6 +19,8 @@ using namespace Eigen;
 #endif
 
 typedef Vector<double, 2*NUM> aData;
+typedef Array<double, NUM, 1> hData;
+
 
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
@@ -43,9 +45,10 @@ private:
 #endif
 
     Bodyfold bodyfold;
-    Map<aData> POS;
-    Map<aData> VEL;
-    Map<aData> ACC;
+    Map<Matrix<double, 3, 2>> POS;
+    Map<Matrix<double, 3, 2>> VEL;
+    Map<Matrix<double, 3, 2>> ACC;
+
 
     vector<double> massRatios;
 
@@ -75,24 +78,32 @@ private:
 
     void updateAccelerations() {
 
-        Vector2d mutualVector;
+        ///IDEAS: make 3 by 2 matrix of pos, vel, acc, or 2 by 3.
 
-        ACC.setZero();
+        Vector2d mutualVector, diff;
 
-        nat j;
-        for (nat i = 0; i < NUM; i++) {
-            j = (i+1)%NUM;
-            mutualVector = directedInverseSquare(bodyfold.posList[i], bodyfold.posList[j]);
-            bodyfold.accList[i] += bodyfold.massList[j] * mutualVector;
-            bodyfold.accList[j] += - bodyfold.massList[i] * mutualVector;
-        }
+        hData Xdiff;
+        hData Ydiff;
+
+        Xdiff << (bodyfold.posList[2] - bodyfold.posList[4]),
+                 (bodyfold.posList[4] - bodyfold.posList[0]),
+                 (bodyfold.posList[0] - bodyfold.posList[2]);
+
+        Ydiff << (bodyfold.posList[3] - bodyfold.posList[5]),
+                 (bodyfold.posList[5] - bodyfold.posList[1]),
+                 (bodyfold.posList[1] - bodyfold.posList[3]);
+
+        hData N = Xdiff.square() + Ydiff.square();
+        N = (N * N.sqrt()).inverse();
+        ACC.col(0) = bodyfold.massList.cross((N * Xdiff).matrix());
+        ACC.col(1) = bodyfold.massList.cross((N * Ydiff).matrix());
     }
 
-    static Vector2d directedInverseSquare(const Vector2d &pos1, const Vector2d &pos2) {
-
-        Vector2d diff = pos2 - pos1;
-        return G * diff / (diff.norm() * diff.squaredNorm());
-    }
+    //static Vector2d directedInverseSquare(const Vector2d &pos1, const Vector2d &pos2) {
+//
+    //    Vector2d diff = pos2 - pos1;
+    //    return G * diff / (diff.norm() * diff.squaredNorm());
+    //}
 
 #if HALTCHECK
 
@@ -280,7 +291,10 @@ public:
     Solver(int givenT, double givenDt, initialData inits=initialConditions()): bodyfold{inits}, T{givenT}, dt{givenDt},
     POS{reinterpret_cast<double*>(&bodyfold.posList)},
     VEL{reinterpret_cast<double*>(&bodyfold.velList)},
-    ACC{reinterpret_cast<double*>(&bodyfold.accList)}
+    ACC{reinterpret_cast<double*>(&bodyfold.accList)},
+    ACCX{reinterpret_cast<double*>(&bodyfold.accList)},
+    ACCY{reinterpret_cast<double*>(&bodyfold.accList) + 1}
+
 #if VISUALIZE
     , visuals{800, 800, getSystemRadius()}
 #endif
