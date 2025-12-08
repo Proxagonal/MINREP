@@ -11,7 +11,7 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS trye
+#define COMPARE_QUANTS true
 #define HALTCHECK true
 #define SOW true
 #define SKIP true
@@ -102,11 +102,7 @@ private:
     Visualizer visuals;
 
     const int savePosPerPasses = (1/dt) / 100;
-    const double secondPerFrame = 0.5;
-
-    static constexpr double t_frame_approx = 0.012412223522235222087;
-    static constexpr double t_symp_approx = 1.8 * pow(10, -7);
-    const int framePerPasses = ceil(t_frame_approx/(secondPerFrame*dt - t_symp_approx));
+    const int framePerPasses = 100;
 
 #endif
 

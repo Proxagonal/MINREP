@@ -87,23 +87,24 @@ int main() {
 
     string str = R"(
 Body #0:
-Mass: 1.636771220589853
-Position: 40 -60 0
-Velocity: 2.3 1 0
+Mass: 17.5
+Position: -0.14931119672550497  -32.367669049057803
+Velocity:   1.6044167284905331 -0.55078791773074187
 Body #1:
-Mass: 1.557730835697107
-Position: 20 -55 0
-Velocity: -3 0 0
+Mass: 15
+Position:  0.1741963961797558 -22.422904627951084
+Velocity: -1.8718195165722886 0.64258590401919891
 Body #2:
-Mass: 1.242946611213134
-Position: 20 -60 0
-Velocity:  0 0 0
+Mass: 12.5
+Position: -2.4671622769447924e-18      72.222222222222229
+Velocity: -2.4671622769447922e-17 -1.2335811384723961e-17
+
 )";
 
     initialData init = Bodyfold::stringToInitialData(str);
     init = Bodyfold::transformToCOMSystem(init);
 
-    init = ergodicScatterRing(2*M_PI*rand01());
+    //init = ergodicScatterRing(2*M_PI*rand01());
 
     cout << "Energy: " << Solver::calcQuantities(init).E() << endl;
     cout << "Ang: " << Solver::calcQuantities(init).angMom.transpose() << endl;
@@ -111,7 +112,7 @@ Velocity:  0 0 0
 
     bool RAND = false;
     init = RAND ? Bodyfold::generateRandomCOM() : init;
-    Solver solver(1000000, pow(10, -3), init);
+    Solver solver(1000000, pow(10, -4), init);
 
     auto start = now();
 
