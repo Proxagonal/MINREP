@@ -11,8 +11,8 @@ using namespace std;
 using namespace Eigen;
 
 #define VISUALIZE true
-#define COMPARE_QUANTS false
-#define HALTCHECK false
+#define COMPARE_QUANTS true
+#define HALTCHECK true
 #define SOW true
 #define SKIP true
 #define SEE true
@@ -102,11 +102,7 @@ private:
     Visualizer visuals;
 
     const int savePosPerPasses = (1/dt) / 100;
-    const double secondPerFrame = 0.5;
-
-    static constexpr double t_frame_approx = 0.012412223522235222087;
-    static constexpr double t_symp_approx = 1.8 * pow(10, -7);
-    const int framePerPasses = ceil(t_frame_approx/(secondPerFrame*dt - t_symp_approx));
+    const int framePerPasses = 1000;
 
 #endif
 
@@ -371,10 +367,24 @@ public:
 
     }
 
+#if DIM == 3
+
+    static initialData ergodicScatterRing3D(double innerPhase, double incline);
+
+#elif DIM == 2
+
+    static initialData ergodicScatterRing2D(array<double, 3> m, double innerDist, double outerDist, double innerPhase);
+    static initialData ergodicScatterRing2D_eccentric_90deg(array<double, 3> m, double r_max, double r_min, double outerDist, double innerPhase);
+
+#endif
+
+
 };
 
 #include "HALT.h"
 #include "SOWSKIP.h"
 #include "SEE.h"
+#include "Constructors.h"
+
 
 #endif

@@ -7,7 +7,7 @@
 #include <SFML/System.hpp>
 #include <unistd.h>
 
-#define RAD 0.5
+#define RAD 0.1
 
 using namespace std;
 using namespace Eigen;
@@ -23,7 +23,7 @@ private:
                                       sf::Color(50, 50, 255)};
     static constexpr int wSkips = 1000/100;
     int wCount = 0;
-    const int pathLength = 1000;
+    const int pathLength = 10000000;
     double farRate = 10;
 
 
