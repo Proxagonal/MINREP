@@ -3,7 +3,6 @@
 
 #include <Eigen/Eigen>
 #include "Bodyfold.h"
-#include "Quantities.h"
 #include "Visualizer.h"
 #include "Kepler.h"
 
@@ -22,12 +21,6 @@ using namespace Eigen;
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
 
-static const long double LD_PI = 3.141592653589793238462643383279L;
-static const long double LD_G = 4*LD_PI*LD_PI;
-static const long double LD_G_inv = 1/LD_G;
-static const double G = LD_G;
-static const double G_inv = 1/LD_G;
-
 
 typedef uint_fast8_t nat;
 
@@ -43,7 +36,7 @@ private:
     //returns initial conditions of system
     static initialData initialConditions() {
 
-        return Bodyfold::generateRandomCOM();
+        return generateRandomCOM();
     }
 
     void doSymplecticIntegrator() {
@@ -80,21 +73,6 @@ private:
 
         VectorDd diff = pos2 - pos1;
         return G * diff / (diff.norm() * diff.squaredNorm());
-    }
-
-    //calculates potential energy
-    double calcPotential() {
-        double total = 0;
-
-        for (int i = 0; i < NUM; i++)
-            for (int j = i + 1; j < NUM; j++)
-            {
-                if (i != j)
-                    total += ((double)(-G * bodyfold.massList[i] * bodyfold.massList[j])) / (bodyfold.posList[i] - bodyfold.posList[j]).norm();
-
-            }
-
-        return total;
     }
 
 #if VISUALIZE
@@ -200,7 +178,7 @@ public:
         , visuals{800, 800, bodyfold.posList}
 #endif
 #if COMPARE_QUANTS
-        , initialQuants{quantities()}
+        , initialQuants{bodyfold.quantities()}
 #endif
     {
 
@@ -329,24 +307,11 @@ public:
         }
     }
 
-    //calculates important quantities
-    Quantities quantities() {
-
-        VectorDd wpos = bodyfold.getWeightedPosition();
-        VectorDd mom = bodyfold.sumMomentum();
-        VectorAngd angMom = bodyfold.sumAngularMomentum();
-
-        double kin = bodyfold.sumKineticEnergy();
-        double pot = calcPotential();
-
-        return {wpos, mom, angMom, kin, pot};
-    };
-
 #if COMPARE_QUANTS
     void compare(const double time) {
         cout << "----------" << endl;
         cout << "TIME: " << time << endl;
-        Quantities::compare(quantities(), initialQuants);
+        Quantities::compare(bodyfold.quantities(), initialQuants);
     }
 #endif
 
@@ -360,16 +325,23 @@ public:
         txt = txt + frame;
         txt = txt + bodyfold.toString();
         txt = txt + frame;
-        txt = txt + quantities().toString();
+        txt = txt + bodyfold.quantities().toString();
         txt = txt + bigFrame;
 
         cout << txt;
 
     }
 
+
+    static initialData generateRandomNONCOM();
+    static initialData generateRandomCOM();
+
+
 #if DIM == 3
 
-    static initialData ergodicScatterRing3D(double innerPhase, double incline);
+    static initialData ergodicScatterRing3D(array<double, 3> m, double innerDist, double outerDist, double innerPhase, double incline);
+    static initialData ergodicScatterRing3D_eccentric(array<double, 3> m, double r_max, double r_min, double outerDist, double innerPhase, double phi, double incline);
+
 
 #elif DIM == 2
 

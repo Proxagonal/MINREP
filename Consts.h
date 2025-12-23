@@ -9,7 +9,7 @@ using namespace Eigen;
 
 
 #define NUM 3
-#define DIM 2
+#define DIM 3
 #define DIM_C2 (DIM*(DIM-1)/2)
 
 typedef Vector<double, DIM> VectorDd;
@@ -30,7 +30,11 @@ static inline int angularIndex(int i, int j) {
 
 }
 
-
+static const long double LD_PI = 3.141592653589793238462643383279L;
+static const long double LD_G = 4*LD_PI*LD_PI;
+static const long double LD_G_inv = 1/LD_G;
+static const double G = LD_G;
+static const double G_inv = 1/LD_G;
 
 
 #endif

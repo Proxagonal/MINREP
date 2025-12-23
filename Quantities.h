@@ -10,9 +10,9 @@ using namespace Eigen;
 
 #define SIZE 3
 
-static const string posName = "Position";
-static const string momName = "Momentum";
-static const string angMomName = "Angular Momentum";
+static const string posName = "COM";
+static const string momName = "Total Momentum";
+static const string angMomName = "Total Angular Momentum";
 
 static const array<string, SIZE> names = {"Total Energy", "Kinetic Energy", "Potential Energy"};
 
@@ -31,8 +31,9 @@ private:
     static string stringVectorDeviation(VectorDd &x, VectorDd &y) {
 
         stringstream ss;
+
         for (int i = 0; i < x.size(); i++) {
-            if (abs(y(i)) < pow(10, -5))
+            if (abs(y(i)) < pow(10, -9))
                 ss << "0 -> " << x(i) << ", ";
             else
                 ss << deviation(x(i), y(i)) << ", ";
@@ -58,17 +59,17 @@ private:
 public:
 
 
-    VectorDd wpos, mom;
+    VectorDd com, mom;
     VectorAngd angMom;
     array<double, SIZE> quants;
 
 
-    Quantities (VectorDd &wposition,
+    Quantities (VectorDd &compos,
                 VectorDd &momentum,
                 VectorAngd &angularMomentum,
                 double kineticEnergy,
                 double potentialEnergy):
-                wpos{wposition},
+                com{compos},
                 mom{momentum},
                 angMom{angularMomentum},
                 quants{kineticEnergy + potentialEnergy,kineticEnergy,potentialEnergy}
@@ -81,7 +82,7 @@ public:
         ss.precision(ALLDIGITS);
 
 
-        ss << posName << ": " << wpos.transpose() << "\n";
+        ss << posName << ": " << com.transpose() << "\n";
         ss << momName << ": " << mom.transpose()<< "\n";
         ss << angMomName << ": " << angMom.transpose() << "\n";
 
@@ -93,9 +94,9 @@ public:
 
     static void compare(Quantities now, Quantities &init) {
 
-        cout << stringVectorDeviation(now.wpos, init.wpos) << endl;
-        cout << stringVectorDeviation(now.mom, init.mom) << endl;
-        cout << stringVectorDeviation(now.angMom, init.angMom) << endl;
+        cout << posName << ": " << stringVectorDeviation(now.com, init.com) << endl;
+        cout << momName << ": " << stringVectorDeviation(now.mom, init.mom) << endl;
+        cout << angMomName << ": " << stringVectorDeviation(now.angMom, init.angMom) << endl;
 
 
         // kinetic energy and potential energy aren't supposed to be conserved, so I don't print them

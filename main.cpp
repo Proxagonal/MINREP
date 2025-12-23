@@ -36,8 +36,8 @@ Velocity: 0 0
 
     //init = Solver::ergodicScatterRing2D_eccentric_90deg({17.5, 15, 12.5}, 10, 0.5, 100, 0.6);
 
-    bool RAND = false;
-    init = RAND ? Bodyfold::generateRandomCOM() : init;
+    bool RAND = true;
+    init = RAND ? Solver::generateRandomCOM() : init;
     Solver solver(100000, pow(10, -6), init);
 
     auto start = now();

@@ -23,7 +23,7 @@ private:
                                       sf::Color(50, 50, 255)};
     static constexpr int wSkips = 1000/100;
     int wCount = 0;
-    const int pathLength = 10000000;
+    const int pathLength = 1000*1000;
     double farRate = 10;
 
 
@@ -39,21 +39,17 @@ private:
     sf::Vector2i mouseMove;
 
 
-    double effectiveOtherDistance(const VectorDd &pos) {
-        VectorDd otherCoords = pos;
-        otherCoords(0) = 0;
-        otherCoords(1) = 0;
+    static Vector2d projection(const VectorDd &pos) {
+        return {pos.x(), pos.y()};
+    }
 
-        return otherCoords.sum() / (DIM*farRate);
+    double effectiveOtherDistance(const VectorDd &pos) {
+        return (pos.sum() - projection(pos).sum()) / (DIM*farRate);
     }
 
     double effectiveRadius(const VectorDd &pos) {
         if (DIM <= 2)
             return RAD;
-
-        VectorDd otherCoords = pos;
-        otherCoords(0) = 0;
-        otherCoords(1) = 0;
 
         return RAD*(1 + tanh(effectiveOtherDistance(pos)));
     }
@@ -70,7 +66,10 @@ private:
 
         shape.setFillColor(effectiveColor(pos, colors[i]));
         shape.setOrigin(rad, rad);
-        shape.setPosition(pos.x(), pos.y());
+
+        Vector2d proj = projection(pos);
+
+        shape.setPosition(proj.x(), proj.y());
 
         window.draw(shape);
     }
@@ -93,7 +92,8 @@ private:
     }
 
     static sf::Vector2f toSFML(const VectorDd &v) {
-        return sf::Vector2f(v.x(), v.y());
+        Vector2d proj = projection(v);
+        return sf::Vector2f(proj.x(), proj.y());
     }
 
     // BREAKS FOR NUM =/= 3
