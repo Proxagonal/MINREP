@@ -54,26 +54,13 @@ initialData Solver::generateRandomNONCOM() {
 // Symmetries: rotation, scale, mass sum, COM, p_COM
 initialData Solver::generateRandomCOM() {
 
-    initialData list;
-
-    VectorDd pos;
-    VectorDd vel;
-    double mass;
-
-    for (int i = 0; i < NUM; i++) {
-        pos = randomOnRadiusD(systemRadius);
-        vel = randomOnRadiusD(velocityMax);
-        mass = massMin + (massMax - massMin) * rand01();
-        list.emplace_back(mass, pos, vel);
-    }
-
-    return Bodyfold::transformToCOMSystem(list);
+    return Bodyfold::transformToCOMSystem(Solver::generateRandomNONCOM());
 }
 
 
 #if DIM == 3
 
-Vector3d rotateAroundAxis(const Vector3d& U, const Vector3d& u, double theta) {
+inline Vector3d rotateAroundAxis(const Vector3d& U, const Vector3d& u, double theta) {
     // Normalize the axis of rotation
     Eigen::Vector3d axis = U.normalized();
 

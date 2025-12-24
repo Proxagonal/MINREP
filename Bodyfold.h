@@ -40,7 +40,7 @@ struct Bodyfold {
         }
     };
 
-    double sumKineticEnergy() {
+    double sumKineticEnergy() const {
 
         double kin = 0;
         for (int i = 0; i < NUM; i++)
@@ -50,7 +50,7 @@ struct Bodyfold {
     };
 
     //calculates potential energy
-    double sumPotential() {
+    double sumPotential() const {
 
         double total = 0;
 
@@ -61,7 +61,7 @@ struct Bodyfold {
         return total;
     }
 
-    VectorAngd sumAngularMomentum() {
+    VectorAngd sumAngularMomentum() const {
 
         VectorDd COM = getCOMPosition();
         VectorDd COMvel = getCOMVelocity();
@@ -81,7 +81,7 @@ struct Bodyfold {
         return total;
     }
 
-    VectorDd sumMomentum() {
+    VectorDd sumMomentum() const {
 
         VectorDd mom = VectorDd::Zero();
         for (int i = 0; i < NUM; i++)
@@ -90,7 +90,7 @@ struct Bodyfold {
         return mom;
     }
 
-    double sumMass() {
+    double sumMass() const {
 
         double mass = 0;
         for (int i = 0; i < NUM; i++)
@@ -99,12 +99,12 @@ struct Bodyfold {
         return mass;
     }
 
-    VectorDd getCOMVelocity() {
+    VectorDd getCOMVelocity() const {
 
         return sumMomentum()/sumMass();
     }
 
-    VectorDd getWeightedPosition() {
+    VectorDd getWeightedPosition() const {
 
         VectorDd weighted = VectorDd::Zero();
 
@@ -114,12 +114,12 @@ struct Bodyfold {
         return weighted;
     }
 
-    VectorDd getCOMPosition() {
+    VectorDd getCOMPosition() const {
 
         return getWeightedPosition()/sumMass();
     }
 
-    static initialData transformToCOMSystem(initialData &init) {
+    static initialData transformToCOMSystem(const initialData &init) {
 
         initialData COMMED;
 
@@ -142,7 +142,7 @@ struct Bodyfold {
         return COMMED;
     }
 
-    string toString(const streamsize accuracy = DEFAULTDIGITS) {
+    string toString(const streamsize accuracy = DEFAULTDIGITS) const {
 
         stringstream ss;
         ss.precision(accuracy);
@@ -160,7 +160,7 @@ struct Bodyfold {
         return ss.str();
     }
 
-    static string toString(initialData &initialConditions, const streamsize accuracy = DEFAULTDIGITS) {
+    static string toString(initialData &initialConditions, const streamsize accuracy = DEFAULTDIGITS) const {
 
         stringstream ss;
         ss.precision(accuracy);
@@ -176,7 +176,7 @@ struct Bodyfold {
         return ss.str();
     }
 
-    static initialData stringToInitialData(string &str) {
+    static initialData stringToInitialData(const string &str) {
 
         initialData bodies;
         std::istringstream iss(str);
@@ -207,7 +207,7 @@ struct Bodyfold {
 
 
     //calculates important quantities
-    Quantities quantities() {
+    Quantities quantities() const {
 
         VectorDd compos = getCOMPosition();
         VectorDd mom = sumMomentum();

@@ -333,14 +333,14 @@ public:
     }
 
 
-    static initialData generateRandomNONCOM();
-    static initialData generateRandomCOM();
+    inline static initialData generateRandomNONCOM();
+    inline static initialData generateRandomCOM();
 
 
 #if DIM == 3
 
-    static initialData ergodicScatterRing3D(array<double, 3> m, double innerDist, double outerDist, double innerPhase, double incline);
-    static initialData ergodicScatterRing3D_eccentric(array<double, 3> m, double r_max, double r_min, double outerDist, double innerPhase, double phi, double incline);
+    inline static initialData ergodicScatterRing3D(array<double, 3> m, double innerDist, double outerDist, double innerPhase, double incline);
+    inline static initialData ergodicScatterRing3D_eccentric(array<double, 3> m, double r_max, double r_min, double outerDist, double innerPhase, double phi, double incline);
 
 
 #elif DIM == 2
