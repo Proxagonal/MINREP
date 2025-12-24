@@ -36,5 +36,18 @@ static const long double LD_G_inv = 1/LD_G;
 static const double G = LD_G;
 static const double G_inv = 1/LD_G;
 
+static double rand01() {
+
+    static std::random_device rd;
+    static std::mt19937_64 gen(rd());
+    static std::uniform_real_distribution<double> dist{0, 1};
+
+    return dist(gen);
+}
+
+const static streamsize DEFAULTDIGITS = std::cout.precision();
+constexpr static streamsize ALLDIGITS = std::numeric_limits<double>::max_digits10;
+
+
 
 #endif

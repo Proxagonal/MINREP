@@ -14,15 +14,6 @@ constexpr static double massMax = 2;
 constexpr static double systemRadius = 5;
 constexpr static double velocityMax = 2.5;
 
-static double rand01() {
-
-    static std::random_device rd;
-    static std::mt19937_64 gen(rd());
-    static std::uniform_real_distribution<double> dist{0, 1};
-
-    return dist(gen);
-}
-
 static double randNormalStandard() {
 
     static std::random_device rd;

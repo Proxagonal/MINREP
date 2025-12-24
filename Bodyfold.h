@@ -15,20 +15,6 @@ using namespace Eigen;
 
 struct Bodyfold {
 
-private:
-
-    constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10;
-
-    inline static double cross(VectorDd &a, VectorDd &b) {
-        return a.x()*b.y() - a.y()*b.x();
-    }
-
-    inline static double cross(VectorDd a, VectorDd b) {
-        return a.x()*b.y() - a.y()*b.x();
-    }
-
-public:
-
     vData posList;
     vData velList;
     vData accList;
@@ -156,10 +142,10 @@ public:
         return COMMED;
     }
 
-    string toString() {
+    string toString(const streamsize accuracy = DEFAULTDIGITS) {
 
         stringstream ss;
-        ss.precision(ALLDIGITS);
+        ss.precision(accuracy);
 
         for (int i = 0; i < NUM; i++) {
 
@@ -174,10 +160,10 @@ public:
         return ss.str();
     }
 
-    static string toString(initialData &initialConditions) {
+    static string toString(initialData &initialConditions, const streamsize accuracy = DEFAULTDIGITS) {
 
         stringstream ss;
-        ss.precision(ALLDIGITS);
+        ss.precision(accuracy);
 
         for (int i = 0; i < NUM; i++) {
 
@@ -232,95 +218,6 @@ public:
 
         return {compos, mom, angMom, kin, pot};
     };
-
-    //TODO: Nd orbital elements
-
-#if DIM <= 3
-
-    struct orbitalElements {
-        long double eccentricity;       // e
-        long double semiLatusRectum;    // p
-        long double argOfPeriapsis;     // omega
-        long double longAscendingNode;  // OMEGA
-        long double inclination;        // i
-        long double trueAnomaly;        // v
-
-        long double semiMajorAxis() {
-            if (eccentricity == 1)
-                return numeric_limits<double>::infinity();
-            return semiLatusRectum/(1 - pow(eccentricity, 2));
-        }
-    };
-
-    typedef Vector3<long double> Vector3ld;
-
-    static orbitalElements calcOrbitalElements(long double m1, long double m2, VectorDld &p1, VectorDld &p2, VectorDld &v1, VectorDld &v2) {
-
-        Vector3ld dp(0,0,0);
-        dp.head(DIM) = p2 - p1;
-
-        Vector3ld dv(0,0,0);
-        dv.head(DIM) = v2 - v1;
-
-        long double mu = LD_G*(m1 + m2);
-
-        long double epsilon = dv.squaredNorm()/2 - mu/dp.norm();
-
-        Vector3ld h = dp.cross(dv); //h2 = dp.squaredNorm() * dv.squaredNorm() - pow(dp.dot(dv), 2); doesnt rely on DIM
-
-        long double p = h.squaredNorm()/mu;
-
-        long double i = acos(h.z()/h.norm());
-
-        Vector3ld n = Vector3ld(-h.y(), h.x(), 0);
-        long double OMEGA = (n.norm() > 0) ? atan2(n.y(), n.x()) : 0;
-
-        Vector3ld ecc = dv.cross(h)/mu - dp/dp.norm();
-
-        long double omega;
-        if (ecc.norm() == 0)
-            omega = 0;
-        else if (n.norm() == 0)
-            omega = atan2(ecc.x(), ecc.y());
-        else {
-            omega = acos(n.dot(ecc)/(ecc.norm() * n.norm()));
-            if (n.cross(ecc).dot(h) < 0)
-                omega = 2*M_PI - omega;
-        }
-
-
-        long double v = atan2(h.norm()/mu * dv.dot(dp), p - dp.norm());
-
-        return {ecc.norm(), p, omega, OMEGA, i, v};
-    }
-
-    static tuple<Vector3ld, Vector3ld> calcStateVectors(double m1, double m2, orbitalElements &OE) {
-
-        auto [e, p, omega, OMEGA, i, v] = OE;
-
-        long double r = p / (1 + e*cos(v));
-
-        long double cosOMEGA = cos(OMEGA);
-        long double sinOMEGA = sin(OMEGA);
-        long double cosi = cos(i);
-        long double sini = sin(i);
-        long double cosvomega = cos(omega + v);
-        long double sinvomega = sin(omega + v);
-
-        long double mu = LD_G*(m1 + m2);
-        long double h = sqrt(mu*p);
-
-        Vector3ld dp (cosOMEGA * cosvomega - sinOMEGA * sinvomega * cosi, sinOMEGA * cosvomega + cosOMEGA * sinvomega * cosi, sini * sinvomega);
-        dp = r * dp;
-
-        Vector3ld dv (- cosOMEGA * sinvomega - sinOMEGA * cosvomega * cosi, - sinOMEGA * sinvomega + cosOMEGA * cosvomega * cosi, sini * cosvomega);
-        dv = dv * h/r;
-        dv = dv + dp * h*e*sin(v)/(r*p);
-
-        return {dp, dv};
-    }
-
-#endif
 
 };
 

@@ -8,19 +8,16 @@
 using namespace std;
 using namespace Eigen;
 
-#define SIZE 3
-
-static const string posName = "COM";
-static const string momName = "Total Momentum";
-static const string angMomName = "Total Angular Momentum";
-
-static const array<string, SIZE> names = {"Total Energy", "Kinetic Energy", "Potential Energy"};
-
 
 class Quantities {
 
-private:
-    constexpr static int ALLDIGITS = std::numeric_limits<double>::max_digits10;
+    static inline const string posName = "COM";
+    static inline const string momName = "Total Momentum";
+    static inline const string angMomName = "Total Angular Momentum";
+
+    static constexpr int SIZE = 3;
+    static inline const array<string, SIZE> names = {"Total Energy", "Kinetic Energy", "Potential Energy"};
+
 
     static double deviation(double x, double y) {
         if (y == 0)
@@ -28,7 +25,7 @@ private:
         return (x-y)/y;
     }
 
-    static string stringVectorDeviation(VectorDd &x, VectorDd &y) {
+    static string stringVectorDeviation(const VectorDd &x, const VectorDd &y) {
 
         stringstream ss;
 
@@ -42,7 +39,7 @@ private:
         return ss.str();
     }
 #if DIM != 3
-    static string stringVectorDeviation(VectorAngd &x, VectorAngd &y) {
+    static string stringVectorDeviation(const VectorAngd &x, const VectorAngd &y) {
 
         stringstream ss;
         for (int i = 0; i < x.size(); i++) {
@@ -59,14 +56,14 @@ private:
 public:
 
 
-    VectorDd com, mom;
-    VectorAngd angMom;
-    array<double, SIZE> quants;
+    const VectorDd com, mom;
+    const VectorAngd angMom;
+    const array<double, SIZE> quants;
 
 
-    Quantities (VectorDd &compos,
-                VectorDd &momentum,
-                VectorAngd &angularMomentum,
+    Quantities (const VectorDd &compos,
+                const VectorDd &momentum,
+                const VectorAngd &angularMomentum,
                 double kineticEnergy,
                 double potentialEnergy):
                 com{compos},
@@ -76,10 +73,10 @@ public:
     {
     }
 
-    string toString() {
+    string toString(const streamsize accuracy = DEFAULTDIGITS) const {
 
         stringstream ss;
-        ss.precision(ALLDIGITS);
+        ss.precision(accuracy);
 
 
         ss << posName << ": " << com.transpose() << "\n";
@@ -92,11 +89,14 @@ public:
         return ss.str();
     }
 
-    static void compare(Quantities now, Quantities &init) {
+    static string compare(const Quantities &now, const Quantities &init, const streamsize accuracy = DEFAULTDIGITS) {
 
-        cout << posName << ": " << stringVectorDeviation(now.com, init.com) << endl;
-        cout << momName << ": " << stringVectorDeviation(now.mom, init.mom) << endl;
-        cout << angMomName << ": " << stringVectorDeviation(now.angMom, init.angMom) << endl;
+        stringstream ss;
+        ss.precision(accuracy);
+
+        ss << posName << ": " << stringVectorDeviation(now.com, init.com) << endl;
+        ss << momName << ": " << stringVectorDeviation(now.mom, init.mom) << endl;
+        ss << angMomName << ": " << stringVectorDeviation(now.angMom, init.angMom) << endl;
 
 
         // kinetic energy and potential energy aren't supposed to be conserved, so I don't print them
@@ -105,13 +105,15 @@ public:
             if (i == 1 || i == 2)
                 continue;
 
-            cout << names.at(i) << ": ";
+            ss << names.at(i) << ": ";
 
             if (init.quants.at(i) == 0)
-                cout << "0 -> " << now.quants.at(i) << endl;
+                ss << "0 -> " << now.quants.at(i) << endl;
             else
-                cout << deviation(now.quants.at(i), init.quants.at(i)) << endl;
+                ss << deviation(now.quants.at(i), init.quants.at(i)) << endl;
         }
+
+        return ss.str();
     }
 
 };

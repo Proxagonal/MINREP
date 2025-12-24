@@ -5,10 +5,12 @@ set(CMAKE_CXX_STANDARD 23)
 
 add_executable(MINREP
         main.cpp
+        #TEST_OE.cpp
         Consts.h
         SEE.h
         SOWSKIP.h
         HALT.h
+        OrbitalElements.h
         #Solver.h
         #Visualizer.h
         #Quantities.h
