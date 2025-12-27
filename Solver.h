@@ -3,8 +3,8 @@
 
 #include <Eigen/Eigen>
 #include "Bodyfold.h"
-#include "Visualizer.h"
 #include "Kepler.h"
+#include "Visualizer.h"
 
 using namespace std;
 using namespace Eigen;
@@ -16,11 +16,14 @@ using namespace Eigen;
 #define SKIP true
 #define SEE true
 
+#if NUM != 3 && (HALTCHECK || SOW || SKIP || SEE)
+#error "Haltchecking, Sowing, Skipping, Sub-escape Excursion Detection: Only avalible for 3-Body Problem."
+#endif
+
 
 #define ORDER 4
 static const array<double, ORDER> C = {1/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), (1-cbrt(2))/(2*(2-cbrt(2))), 1/(2*(2-cbrt(2)))};
 static const array<double, ORDER> D = {1/(2-cbrt(2)), -cbrt(2)/(2-cbrt(2)), 1/(2-cbrt(2)), 0};
-
 
 typedef uint_fast8_t nat;
 
@@ -95,13 +98,13 @@ private:
     static const int escapeDistanceRatio = 10;
     static const int halt_edrSquared = escapeDistanceRatio*escapeDistanceRatio;
 
-    tuple<int, int> haltCheck();
+    int haltCheck();
 
-    inline tuple<nat, nat> escapeCheck(const vector<double> &distSquares);
+    inline int escapeCheck(const vector<double> &distSquares);
 
     // 0: Undecided, 1: Escape, 2: Locked?
     // NOTE: Can save many divisions, but this gets calculated so infrequently that it doesn't matter.
-    nat confirmEscape(const vector<double> &distSquares, const nat i);
+    bool confirmEscape(const vector<double> &distSquares, const nat i);
 
     bool isDissolved(const vector<double> &distSquares);
 
@@ -181,11 +184,6 @@ public:
         , initialQuants{bodyfold.quantities()}
 #endif
     {
-
-#if VISUALIZE
-        if (framePerPasses <= 0)
-            throw std::domain_error("Unfeasible framerate");
-#endif
 
         updateAccelerations();
         dumpSystemStateString();
@@ -284,8 +282,8 @@ public:
 
 #if HALTCHECK
             if (pass%halt_checkPer == 0) {
-                tuple<int, int> result = haltCheck();
-                cout << get<0>(result) << " " << get<1>(result) << endl;
+                int result = haltCheck();
+                cout << "Halt Status: " << result << endl;
             }
 #endif
 

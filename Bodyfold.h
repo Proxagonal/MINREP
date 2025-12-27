@@ -160,7 +160,7 @@ struct Bodyfold {
         return ss.str();
     }
 
-    static string toString(initialData &initialConditions, const streamsize accuracy = DEFAULTDIGITS) const {
+    static string toString(initialData &initialConditions, const streamsize accuracy = DEFAULTDIGITS) {
 
         stringstream ss;
         ss.precision(accuracy);

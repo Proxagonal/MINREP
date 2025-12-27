@@ -5,8 +5,7 @@
 
 #include "Solver.h"
 
-
-inline tuple<int, int> Solver::haltCheck() {
+inline int Solver::haltCheck() {
 
     vector<double> distSquares;
 
@@ -16,40 +15,39 @@ inline tuple<int, int> Solver::haltCheck() {
         distSquares.emplace_back((bodyfold.posList[i] - bodyfold.posList[j]).squaredNorm());
     }
 
-    nat escapeCheckBody, escapeCheckStatus;
-    tie(escapeCheckBody, escapeCheckStatus) = escapeCheck(distSquares);
-
-    if (escapeCheckStatus == 1)
-        return {escapeCheckBody, escapeCheckStatus};
-    //if (escapeCheckStatus == 2) {
-    //    //Activate ellipse stuff
-    //    return {-1, -1};
-    //}
+    int body = escapeCheck(distSquares);
+    if (body != -1)
+        return body;
 
     if (isDissolved(distSquares))
-        return {-1, 3};
+        return 3;
 
     // To Be Determined
-    return {-1, -1};
+    return -1;
 
 }
 
 
-inline tuple<nat, nat> Solver::escapeCheck(const vector<double> &distSquares) {
+inline int Solver::escapeCheck(const vector<double> &distSquares) {
+
+    int body = -1;
 
     if (distSquares.at(0) > halt_edrSquared * distSquares.at(1))
-        return {0, confirmEscape(distSquares, 0)};
+        body = 0;
     if (halt_edrSquared * distSquares.at(0) < distSquares.at(1))
-        return {2, confirmEscape(distSquares, 2)};
+        body = 1;
     if (halt_edrSquared * distSquares.at(2) < distSquares.at(1))
-        return {1, confirmEscape(distSquares, 1)};
+        body = 2;
 
-    return {-1, -1};
+    if (body != -1 && confirmEscape(distSquares, body))
+        return body;
+
+    return -1;
 }
 
 // 0: Undecided, 1: Escape, 2: Locked?
 // NOTE: Can save many divisions, but this gets calculated so infrequently that it doesn't matter.
-inline nat Solver::confirmEscape(const vector<double> &distSquares, const nat i) {
+inline bool Solver::confirmEscape(const vector<double> &distSquares, const nat i) {
 
     int uno = (i + 1) % NUM;
     int dos = (i + 2) % NUM;
@@ -64,14 +62,14 @@ inline nat Solver::confirmEscape(const vector<double> &distSquares, const nat i)
 
     // This means the binary isn't bound
     if (epsilon_ud >= 0)
-        return 0;
+        return false;
 
     double ellipseMajor_ud = -mu_ud/epsilon_ud;
 
     // This means the approximation will not be good at apoapsis
     // Multiply by eps^2 for no division
     if (halt_edrSquared * ellipseMajor_ud * ellipseMajor_ud > distSquares[i])
-        return 0;
+        return false;
 
     VectorDd binaryCOM = (mu*bodyfold.posList[uno] + md*bodyfold.posList[dos])/(mu + md);
     VectorDd binaryCOMVel = (mu*bodyfold.velList[uno] + md*bodyfold.velList[dos])/(mu + md);
@@ -93,7 +91,7 @@ inline nat Solver::confirmEscape(const vector<double> &distSquares, const nat i)
 
     // Suspicion of Hierarchical triple system. What this is technically is that both
     // the nested and big two body systems are bound.
-    return 2;
+    return false;
 }
 
 
@@ -153,4 +151,5 @@ inline bool Solver::isDissolved(const vector<double> &distSquares) {
 }
 
 #endif
+
 #endif
