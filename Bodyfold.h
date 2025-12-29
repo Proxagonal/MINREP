@@ -61,6 +61,10 @@ struct Bodyfold {
         return total;
     }
 
+    double sumEnergy() const {
+        return sumKineticEnergy() + sumPotential();
+    }
+
     VectorAngd sumAngularMomentum() const {
 
         VectorDd COM = getCOMPosition();
@@ -160,7 +164,7 @@ struct Bodyfold {
         return ss.str();
     }
 
-    static string toString(initialData &initialConditions, const streamsize accuracy = DEFAULTDIGITS) const {
+    static string toString(initialData &initialConditions, const streamsize accuracy = DEFAULTDIGITS) {
 
         stringstream ss;
         ss.precision(accuracy);
