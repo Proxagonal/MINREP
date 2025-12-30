@@ -9,7 +9,7 @@ using namespace Eigen;
 
 
 #define NUM 3
-#define DIM 2
+#define DIM 3
 #define DIM_C2 (DIM*(DIM-1)/2)
 
 typedef Vector<double, DIM> VectorDd;

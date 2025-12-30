@@ -10,6 +10,8 @@
 using namespace std;
 using namespace Eigen;
 
+#define ORB_ELEMENT_NUM 6
+
 
 //TODO: Nd orbital elements
 
@@ -17,7 +19,6 @@ using namespace Eigen;
 
 class OrbitalElements {
 
-    static constexpr int ORB_ELEMENT_NUM = 6;
     static inline const array<string, ORB_ELEMENT_NUM> names = {"Eccentricity", "Semi-Latus Rectum", "Argument of Periapsis", "Longitude of Ascending Node", "Inclination", "True Anomaly"};
     static inline const array<string, ORB_ELEMENT_NUM> symbols = {"e", "p", "ω", "Ω", "i", "v"};
     typedef Vector3<long double> Vector3ld;
@@ -46,6 +47,8 @@ public:
 
     }
 
+public:
+
     array<long double, ORB_ELEMENT_NUM> asArray() const {
 
         return {eccentricity,
@@ -55,8 +58,6 @@ public:
                     inclination,
                     trueAnomaly};
     }
-
-public:
 
     static OrbitalElements calcOrbitalElements(const long double m1, const long double m2, const VectorDld &Ddp, const VectorDld &Ddv) {
 
