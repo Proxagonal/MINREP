@@ -31,7 +31,7 @@ int main() {
 
     for (int i = 0; i < N; i++) {
 
-        //Solver solver();
+        Solver solver(random);
 
 
     }

@@ -4,13 +4,10 @@
 #include <Eigen/Eigen>
 #include "Bodyfold.h"
 #include "Kepler.h"
-#include "Visualizer.h"
 
 using namespace std;
 using namespace Eigen;
 
-#define VISUALIZE true
-#define COMPARE_QUANTS true
 #define HALTCHECK true
 #define SOW true
 #define SKIP true
@@ -29,18 +26,35 @@ typedef uint_fast8_t nat;
 
 class Solver {
 
-private:
-
-    const int T;
+public:
     const double dt;
-
     Bodyfold bodyfold;
+    const double crossingTime = G * pow(bodyfold.sumMass(), 2.5) / pow(2*abs(bodyfold.sumEnergy()), 1.5);
+    const int crossingTimePasses = crossingTime/dt;
+    int see_checkPer;
 
-    //returns initial conditions of system
-    static initialData initialConditions() {
+    enum excursionStatus {
+        NONE=0,
+        SUSPECTED=1,
+        GOING=2,
+        RETURNING=3
+    };
 
-        return generateRandomCOM();
-    }
+    enum haltStatus {
+        UNDETERMINED=-1,
+        ESCAPE_0=0,
+        ESCAPE_1=1,
+        ESCAPE_2=2
+    };
+
+#if HALTCHECK
+    int haltCheck();
+#endif
+#if SEE
+    inline long double AARatio(nat far);
+#endif
+
+private:
 
     void doSymplecticIntegrator() {
 
@@ -78,27 +92,10 @@ private:
         return G * diff / (diff.norm() * diff.squaredNorm());
     }
 
-#if VISUALIZE
-
-    Visualizer visuals;
-
-    const int savePosPerPasses = (1/dt) / 100;
-    const int framePerPasses = 1000;
-
-#endif
-
-#if COMPARE_QUANTS
-    Quantities initialQuants;
-    const int compare_checkPer = 1/dt;
-#endif
-
 #if HALTCHECK
 
-    const int halt_checkPer = 1/dt;
     static const int escapeDistanceRatio = 10;
     static const int halt_edrSquared = escapeDistanceRatio*escapeDistanceRatio;
-
-    int haltCheck();
 
     inline int escapeCheck(const vector<double> &distSquares);
 
@@ -143,7 +140,7 @@ private:
 #endif
 #if SKIP
 
-    const int skip_checkPer = 1/dt;
+    const int skip_checkPer;
     const double skippingDistanceApoapsisRatio = 200;
     const long skip_minPasses = pow(10, 7); // About 1 real sec
     const double skip_minTime = skip_minPasses*dt;
@@ -158,8 +155,7 @@ private:
 #endif
 
 #if SEE
-    int see_checkPer = 1/(100*dt);
-    static const int see_ratio = 4;
+    static const int see_ratio = 3;
     static const int see_detectRatio = 2;
 
     inline bool isGoingAway(nat far);
@@ -168,150 +164,95 @@ private:
     inline int see_1(nat &far);
     inline int see_2(nat &far);
     inline int see_3(nat &far);
-    inline long double AARatio(nat far);
-
-    array<int(Solver::*)(nat&), 4> see_operator = {&Solver::see_0, &Solver::see_1, &Solver::see_2, &Solver::see_3};
 #endif
 
 public:
 
-    Solver(int givenT, double givenDt, initialData inits=initialConditions())
-        : bodyfold{inits}, T{givenT}, dt{givenDt}
-#if VISUALIZE
-        , visuals{800, 800, bodyfold.posList}
-#endif
-#if COMPARE_QUANTS
-        , initialQuants{bodyfold.quantities()}
-#endif
+    Solver(double givenDt, const initialData &inits, int skipChecksPerCT=1, int SeeChecksPerCT=500)
+        : bodyfold{inits}, dt{givenDt},
+            skip_checkPer{crossingTimePasses / skipChecksPerCT},
+            see_checkPer{crossingTimePasses / SeeChecksPerCT}
     {
-
         updateAccelerations();
-        dumpSystemStateString();
     }
 
-    void run() {
 
-#if SKIP
-        long passCanCheck = 0;
-#endif
-
+    long pass = 0;
+    long passCanCheck = 0;
 #if SOW || SKIP
-        long double tSkipped = 0;
-#define TIME() (pass*dt + tSkipped)
-#else
-#define TIME() (pass*dt)
+    long double tSkipped = 0;
 #endif
-
 #if SEE
-        double see_startTime;
-        int see_status = 0;
-        nat see_body;
+    int exc_status = 0;
+    nat exc_body;
 #endif
 
-        for (long pass = 0; TIME() < T; pass++) {
+    long double time() {
+        return pass*dt
+#if SOW || SKIP
+        +tSkipped
+#endif
+        ;
+    }
+
+    void runIteration() {
 
 #if SKIP
-            if (pass % skip_checkPer == 0 && pass >= passCanCheck) {
-                for (nat i = 0; i < NUM; i++) {
-
-                    nat uno = (i+1)%NUM;
-                    nat dos = (i+2)%NUM;
-
-                    double smallDistSquared = (bodyfold.posList[dos] - bodyfold.posList[uno]).squaredNorm();
-                    double bigDistSquared = (bodyfold.posList[i] - bodyfold.posList[dos]).squaredNorm();
-
-                    if (skip_darSquared*smallDistSquared < bigDistSquared)
-                        if (checkDAR(i)) {
-
-                            auto [tSkip, done] = skipSystem(i);
-                            done ? (tSkipped += tSkip) : (passCanCheck = pass + tSkip/dt);
-                            cout << "-----------------" << " SKIP: " << done * tSkipped << "-----------------" << endl;
-                        }
-                }
-            }
-#endif
-#if SOW
+        if (pass % skip_checkPer == 0 && pass >= passCanCheck) {
             for (nat i = 0; i < NUM; i++) {
 
-                nat j = (i + 1) % NUM;
+                nat uno = (i+1)%NUM;
+                nat dos = (i+2)%NUM;
 
-                VectorDd relpos = bodyfold.posList[j] - bodyfold.posList[i];
-                VectorDd relvel = bodyfold.velList[j] - bodyfold.velList[i];
+                double smallDistSquared = (bodyfold.posList[dos] - bodyfold.posList[uno]).squaredNorm();
+                double bigDistSquared = (bodyfold.posList[i] - bodyfold.posList[dos]).squaredNorm();
 
-                // if both sim-bad condition AND getting worse AND body ratio allows it
-                if (relvel.squaredNorm() >= RsquaredConst * relpos.squaredNorm()
-                    && relpos.dot(relvel) <= 0)
-
-                    if (sow_drSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
-                        tSkipped += sowSystem((j+1)%NUM);
-                        cout << "-----------------" << " CUT " << "-----------------" << endl;
-                        break;
+                if (skip_darSquared*smallDistSquared < bigDistSquared)
+                    if (checkDAR(i)) {
+                        auto [tSkip, done] = skipSystem(i);
+                        done ? (tSkipped += tSkip) : (passCanCheck = pass + tSkip/dt);
                     }
             }
+        }
+#endif
+#if SOW
+        for (nat i = 0; i < NUM; i++) {
+
+            nat j = (i + 1) % NUM;
+
+            VectorDd relpos = bodyfold.posList[j] - bodyfold.posList[i];
+            VectorDd relvel = bodyfold.velList[j] - bodyfold.velList[i];
+
+            // if both sim-bad condition AND getting worse AND body ratio allows it
+            if (relvel.squaredNorm() >= RsquaredConst * relpos.squaredNorm()
+                && relpos.dot(relvel) <= 0)
+
+                if (sow_drSquared*relpos.squaredNorm() < (bodyfold.posList[i] - bodyfold.posList[(j+1)%NUM]).squaredNorm()) {
+                    tSkipped += sowSystem((j+1)%NUM);
+                    break;
+                }
+        }
 #endif
 
 #if SEE
-            if (pass % see_checkPer == 0) {
-                switch(see_status) {
+        if (pass % see_checkPer == 0) {
+            switch(exc_status) {
 
-                    case 0: see_status = see_0(see_body);
-                        if (see_status == 1) {
-                            cout << "TIME" << endl;
-                            see_startTime = TIME();
-                        }
-                        break;
+                case 0: exc_status = see_0(exc_body); break;
 
-                    case 1: see_status = see_1(see_body);
-                        if (see_status == 2)
-                            cout << "SEE OFFICIAL" << endl;
-                        break;
+                case 1: exc_status = see_1(exc_body); break;
 
-                    case 2: see_status = see_2(see_body); break;
+                case 2: exc_status = see_2(exc_body); break;
 
-                    case 3: see_status = see_3(see_body);
-                        if (see_status == 0)
-                            cout << "SEE TIME: " << TIME() - see_startTime << endl;;
-                        break;
-                }
+                case 3: exc_status = see_3(exc_body); break;
             }
-
-#endif
-
-
-            doSymplecticIntegrator();
-
-#if HALTCHECK
-            if (pass%halt_checkPer == 0) {
-                int result = haltCheck();
-                cout << "Halt Status: " << result << endl;
-            }
-#endif
-
-#if VISUALIZE
-            if (pass%savePosPerPasses == 0)
-                visuals.addToPaths(bodyfold.posList);
-
-            if (pass%framePerPasses == 0 || (visuals.slowDown() && pass%(1 + framePerPasses/visuals.slowerBy) == 0)) {
-                visuals.visualizationLoop(bodyfold.posList);
-                if (!visuals.isOpen())
-                    break;
-            }
-#endif
-#if COMPARE_QUANTS
-            if (pass%compare_checkPer == 0) {
-                compare(TIME());
-            }
-#endif
         }
-    }
 
-#if COMPARE_QUANTS
-    void compare(const double time) {
-        cout << "----------" << endl;
-        cout << "TIME: " << time << endl;
-        Quantities::compare(bodyfold.quantities(), initialQuants);
-    }
 #endif
+
+        doSymplecticIntegrator();
+        pass++;
+    }
 
     void dumpSystemStateString() {
 

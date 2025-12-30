@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 23)
 
 add_executable(MINREP
         main.cpp
-        #TestSpeed.cpp
         Consts.h
         SEE.h
         SOWSKIP.h

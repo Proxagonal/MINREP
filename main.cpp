@@ -3,6 +3,9 @@
 #include <unistd.h>
 #include <iostream>
 
+#include "OrbitalElements.h"
+#include "Visualizer.h"
+
 using namespace std;
 using namespace Eigen;
 
@@ -31,18 +34,55 @@ Mass: 1
 Position:  1 1
 Velocity: 0 0
 )";
+
     initialData init = Bodyfold::stringToInitialData(str);
     init = Bodyfold::transformToCOMSystem(init);
 
-    //init = Solver::ergodicScatterRing2D_eccentric_90deg({17.5, 15, 12.5}, 10, 0.5, 100, 0.6);
+    init = Solver::ergodicScatterRing2D_eccentric_90deg({17.5, 15, 12.5}, 10, 0.5, 100, 0.7);
 
-    bool RAND = true;
+    bool RAND = false;
     init = RAND ? Solver::generateRandomCOM() : init;
-    Solver solver(100000, pow(10, -6), init);
+
+
+
+
+
+
+    Solver solver(pow(10, -3), init);
+    Visualizer visuals(800, 800, init, solver.dt);
+
+    Quantities initialQuants = solver.bodyfold.quantities();
+
+    Solver::excursionStatus exc_status = Solver::excursionStatus::NONE;
+    while (true) {
+
+        solver.runIteration();
+
+        if (solver.pass % solver.crossingTimePasses == 0) {
+            cout << "Halt Status: " << solver.haltCheck() << endl;
+            cout << Quantities::compare(solver.bodyfold.quantities(), initialQuants) << endl;
+        }
+
+        if (solver.pass % solver.see_checkPer && exc_status != solver.exc_status) {
+
+            if (solver.exc_status == Solver::excursionStatus::SUSPECTED)
+                cout << "Exc Potential Time: " << solver.time() << endl;
+            if (solver.exc_status == Solver::excursionStatus::RETURNING)
+                cout << "AARatio: " << solver.AARatio(solver.exc_body) << endl;
+            if (solver.exc_status == Solver::excursionStatus::NONE && exc_status == Solver::excursionStatus::RETURNING)
+                cout << "EXC Done at: " << solver.time() << endl;
+
+            exc_status = (Solver::excursionStatus)solver.exc_status;
+        }
+
+
+        if (!visuals.easyVisualize(solver.pass, solver.bodyfold.posList))
+            break;
+    }
+
 
     auto start = now();
 
-    solver.run();
 
     auto end = now();
 

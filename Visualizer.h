@@ -7,7 +7,7 @@
 #include <SFML/System.hpp>
 #include <unistd.h>
 
-#define RAD 0.1
+#include "Consts.h"
 
 using namespace std;
 using namespace Eigen;
@@ -16,15 +16,30 @@ class Visualizer {
 
 private:
 
+    inline static const vector<sf::Color> constcolors = {sf::Color(255, 50, 50),
+                                  sf::Color(50, 255, 50),
+                                  sf::Color(50, 50, 255)};
+    const vector<sf::Color> colors = makeColors();
+
+
+    // rand is used purposefully: use srand to get consistent colors.
+    vector<sf::Color> makeColors()
+    {
+        vector<sf::Color> gencolors = constcolors;
+
+        for (int i = constcolors.size(); i < NUM; ++i)
+            gencolors.emplace_back(rand() % 256, rand() % 256, rand() % 256);
+
+        return gencolors;
+    }
+
+    double radius;
     static constexpr double zoomSpeed = 0.05;
     static constexpr double initialZoomFactor = 6;
-    const vector<sf::Color> colors = {sf::Color(255, 50, 50),
-                                      sf::Color(50, 255, 50),
-                                      sf::Color(50, 50, 255)};
-    static constexpr int wSkips = 1000/100;
+    static constexpr int wSkips = 10;
     int wCount = 0;
-    const int pathLength = 1000*1000;
-    double farRate = 10;
+    const int pathLength;
+    const double farRate;
 
 
     sf::RenderWindow window;
@@ -49,9 +64,9 @@ private:
 
     double effectiveRadius(const VectorDd &pos) {
         if (DIM <= 2)
-            return RAD;
+            return radius;
 
-        return RAD*(1 + tanh(effectiveOtherDistance(pos)));
+        return radius*(1 + tanh(effectiveOtherDistance(pos)));
     }
 
     inline sf::Color effectiveColor(const VectorDd &pos, const sf::Color &color) {
@@ -96,33 +111,62 @@ private:
         return sf::Vector2f(proj.x(), proj.y());
     }
 
-    // BREAKS FOR NUM =/= 3
     array<int, NUM> bodiesOrdered(const vData &posList) {
 
-        int a = 0, b = 1, c = 2;
+        array<int, NUM> idx;
+        for (int i = 0; i < NUM; i++)
+            idx[i] = i;
 
-        if (effectiveRadius(posList[a]) > effectiveRadius(posList[b])) swap(a, b);
-        if (effectiveRadius(posList[a]) > effectiveRadius(posList[c])) swap(a, c);
-        if (effectiveRadius(posList[b]) > effectiveRadius(posList[c])) swap(b, c);
+        for (int i = 0; i < NUM; i++)
+            for (int j = i + 1; j < NUM; j++)
+                if (effectiveRadius(posList[idx[i]]) >
+                    effectiveRadius(posList[idx[j]]))
+                    swap(idx[i], idx[j]);
 
-        return {a, b, c};
+        return idx;
     }
 
-    double getSystemRadius(vData &posList) {
+    vData getPoslist(const initialData &init) {
+
+        vData posList;
+
+        for (int i = 0; i < NUM; i++)
+            posList[i] = get<1>(init[i]);
+
+        return posList;
+
+    }
+
+    double getSystemRadius(const vData &posList) const {
 
         double maximum = 0;
-        for (int i = 0; i < NUM; i++)
-            maximum = max(maximum, posList[i].norm());
+        for (const auto &pos : posList)
+            maximum = max(maximum, pos.norm());
 
         return maximum;
+    }
+
+    double getMinDistance(const vData &posList) const {
+
+        double minimum = numeric_limits<double>::infinity();
+
+        for (int i = 0; i < NUM; i++)
+            for (int j = i + 1; j < NUM; j++)
+                minimum = min(minimum, (posList[i] - posList[j]).squaredNorm());
+
+        return sqrt(minimum);
     }
 
 
 public:
 
-    static const int slowerBy = 30;
-
-    Visualizer(int winX, int winY, double sysrad):
+    Visualizer(int winX, int winY, double sysrad, double bodyRadius, double farRate, int pathLength, int savePosPerPasses, int framesPerPasses, int slowingFactor=30):
+            radius{bodyRadius},
+            farRate{farRate},
+            pathLength{pathLength},
+            savePosPerPasses{savePosPerPasses},
+            framePerPasses{framesPerPasses},
+            slowerBy{slowingFactor},
             window{sf::VideoMode(winX, winY), "NBP"} {
         view.setCenter(0, 0);
         view.setRotation(180);
@@ -134,15 +178,26 @@ public:
 
         window.setView(view);
 
-        auto pos = sf::Vector2i(1000,70); //HUH
+        sf::Vector2i pos(1000,70);
         window.setPosition(pos);
 
         for (int i = 0; i < NUM; i++)
             paths[i] = sf::VertexArray(sf::LinesStrip, 2*pathLength);
     }
 
-    Visualizer(int winX, int winY, vData &posList)
-        : Visualizer(winX, winY, getSystemRadius(posList)) {}
+    Visualizer(int winX, int winY, const vData &posList, double dt, int savePosPerYear, int framesPerYear, int slowingFactor)
+        : Visualizer(winX, winY,
+        getSystemRadius(posList),
+        getMinDistance(posList)/20,
+        getSystemRadius(posList),
+        100,
+        (int)(1/(savePosPerYear*dt)),
+        (int)(1/(framesPerYear*dt)),
+        slowingFactor)
+    {}
+
+    Visualizer(int winX, int winY, const initialData &init, double dt, int savePosPerYear=100, int framesPerYear=30, int slowingFactor=30)
+    : Visualizer(winX, winY, getPoslist(init), dt, savePosPerYear, framesPerYear, slowingFactor) {}
 
     bool isOpen() {
         return window.isOpen();
@@ -151,7 +206,21 @@ public:
         return sf::Keyboard::isKeyPressed(sf::Keyboard::S);
     }
 
-    void visualizationLoop(const vData &posList) {
+    int savePosPerPasses = 100;
+    int framePerPasses = 100;
+    int slowerBy = 30;
+    bool easyVisualize(long pass, const vData &posList) {
+
+        if (pass%savePosPerPasses == 0)
+            addToPaths(posList);
+
+        if (pass%framePerPasses == 0 || (slowDown() && pass%(1 + framePerPasses/slowerBy) == 0))
+            visualizeIteration(posList);
+
+        return isOpen();
+    }
+
+    void visualizeIteration(const vData &posList) {
 
         wCount--;
         if (wCount > 0)

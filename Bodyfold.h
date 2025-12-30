@@ -61,6 +61,10 @@ struct Bodyfold {
         return total;
     }
 
+    double sumEnergy() const {
+        return sumKineticEnergy() + sumPotential();
+    }
+
     VectorAngd sumAngularMomentum() const {
 
         VectorDd COM = getCOMPosition();

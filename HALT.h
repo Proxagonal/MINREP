@@ -35,9 +35,9 @@ inline int Solver::escapeCheck(const vector<double> &distSquares) {
     if (distSquares.at(0) > halt_edrSquared * distSquares.at(1))
         body = 0;
     if (halt_edrSquared * distSquares.at(0) < distSquares.at(1))
-        body = 1;
-    if (halt_edrSquared * distSquares.at(2) < distSquares.at(1))
         body = 2;
+    if (halt_edrSquared * distSquares.at(2) < distSquares.at(1))
+        body = 1;
 
     if (body != -1 && confirmEscape(distSquares, body))
         return body;
