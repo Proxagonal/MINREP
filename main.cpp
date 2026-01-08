@@ -38,7 +38,7 @@ Velocity: 0 0
     initialData init = Bodyfold::stringToInitialData(str);
     init = Bodyfold::transformToCOMSystem(init);
 
-    init = Solver::ergodicScatterRing2D_eccentric_90deg({17.5, 15, 12.5}, 10, 0.5, 100, 0.7);
+    init = Solver::ergodicScatterRing2D_eccentric_90deg({17.5, 15, 12.5}, 10, 0.5, 100, rand01()*2*M_PI);
 
     bool RAND = false;
     init = RAND ? Solver::generateRandomCOM() : init;

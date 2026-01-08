@@ -12,8 +12,10 @@
 #include "OrbitalElements.h"
 #include <array>
 
+
 #define COMPS 12
-#define PATHSTART "/home/ethan/Desktop/DATA/DATAOUT"
+#define PATHSTART "/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
+//"/home/ethan/Desktop/DATA/DATAOUT"
 
 #define M1 20
 #define M2 20
@@ -25,19 +27,21 @@
 
 #define POWNUM 5
 
-#define NAN numeric_limits<double>::quiet_NaN();
-
-
 const double MAX_ENERGY_DEVIATION = pow(10, -5);
 
 
-
+struct BinHeader {
+    char DESCRIPTION[100];
+    char date[16];
+    int fieldCount;
+};
 
 enum class FieldType : uint8_t {
     INT32   = 1,
     INT64   = 2,
     FLOAT32 = 3,
-    FLOAT64 = 4
+    FLOAT64 = 4,
+    FLOAT128 = 5
 };
 
 // --- Field descriptor ---
@@ -54,7 +58,7 @@ FieldDescriptor make_field(const char* name, FieldType type, uint8_t ndim,
                            uint32_t s0 = 0, uint32_t s1 = 0,
                            uint32_t s2 = 0, uint32_t s3 = 0) {
     FieldDescriptor fd{};
-    std::strncpy(fd.name, name, 31);
+    strncpy(fd.name, name, 31);
     fd.type = type;
     fd.ndim = ndim;
     fd.shape[0] = s0;
@@ -69,8 +73,8 @@ FieldDescriptor fields[] = {
     make_field("massarr",      FieldType::FLOAT64, 1, NUM),
     make_field("init_parr",    FieldType::FLOAT64, 2, NUM, DIM),
     make_field("init_varr",    FieldType::FLOAT64, 2, NUM, DIM),
-    make_field("end_inner_OE", FieldType::FLOAT64, 1, ORB_ELEMENT_NUM),
-    make_field("end_outer_OE", FieldType::FLOAT64, 1, ORB_ELEMENT_NUM),
+    make_field("end_inner_OE", FieldType::FLOAT128, 1, ORB_ELEMENT_NUM),
+    make_field("end_outer_OE", FieldType::FLOAT128, 1, ORB_ELEMENT_NUM),
 
     make_field("inclination",  FieldType::FLOAT64, 0),
     make_field("phase",        FieldType::FLOAT64, 0),
@@ -90,8 +94,8 @@ struct Record {
     double massarr[NUM];
     double init_parr[NUM][DIM];
     double init_varr[NUM][DIM];
-    double end_inner_OE[NUM][DIM];
-    double end_outer_OE[NUM][DIM];
+    long double end_inner_OE[ORB_ELEMENT_NUM];
+    long double end_outer_OE[ORB_ELEMENT_NUM];
 
     double inclination;
     double phase;
@@ -242,7 +246,30 @@ static Vector2d toCartesian(double rad, double theta) {
     return {rad*cos(theta), rad*sin(theta)};
 }
 
-static tuple<OrbitalElements, OrbitalElements>
+static tuple<OrbitalElements, OrbitalElements> innerOuterOE(Bodyfold &bodyfold, nat i) {
+
+    nat uno = (i+1) % NUM;
+    nat dos = (i+2) % NUM;
+
+    long double m_uno = bodyfold.massList[uno];
+    long double m_dos = bodyfold.massList[dos];
+    VectorDld innerPosRel = (bodyfold.posList[dos] - bodyfold.posList[uno]).cast<long double>();
+    VectorDld innerVelRel = (bodyfold.velList[dos] - bodyfold.velList[uno]).cast<long double>();
+
+    auto innerOE = OrbitalElements::calcOrbitalElements(m_uno, m_dos, innerPosRel, innerVelRel);
+
+    long double innerM = m_uno + m_dos;
+
+    VectorDld innerCOM = (m_uno*bodyfold.posList[uno] + m_dos*bodyfold.posList[dos]).cast<long double>() / innerM;
+    VectorDld innerCOMvel = (m_uno*bodyfold.velList[uno] + m_dos*bodyfold.velList[dos]).cast<long double>() / innerM;
+
+    VectorDld outerPosRel = bodyfold.posList[i].cast<long double>() - innerCOM;
+    VectorDld outerVelRel = bodyfold.velList[i].cast<long double>() - innerCOMvel;
+
+    auto outerOE = OrbitalElements::calcOrbitalElements(innerM, bodyfold.massList[i], outerPosRel, outerVelRel);
+
+    return {innerOE, outerOE};
+}
 
 
 mode_t mode = 0666 | S_IRWXU | S_IRWXG | S_IRWXO;
@@ -278,16 +305,37 @@ int main() {
 
     string ID = to_string(index);
 
-    ofstream systemResults(path + ID + string("_Results.txt"), std::ios::app);
+    ofstream binfile(path + ID + string("_Records.bin"), ios::binary | ios::out);
 
-    int threadCounter = 0;
+    if (!binfile) {
+        cerr << "Failed to open binary output file\n";
+        return 1;
+    }
+
+    auto today = floor<chrono::days>(std::chrono::system_clock::now());
+
+    std::chrono::year_month_day ymd{today};
+
+    BinHeader header;
+    strncpy(header.DESCRIPTION, "name", 99);
+
+    ostringstream ss;
+    ss << unsigned(ymd.day()) << "/" << unsigned(ymd.month()) << "/" << int(ymd.year());
+
+    strncpy(header.date, ss.str().c_str(), 15);
+    header.fieldCount = sizeof(fields)/sizeof(FieldDescriptor);
+
+    binfile.write(reinterpret_cast<char*>(&header), sizeof(header));
+    binfile.write(reinterpret_cast<char*>(fields), sizeof(fields));
+
+
 
     array<double, POWNUM> dtsNAN;
     for (int i = 0; i < POWNUM; i++)
-        dtsNAN[i] = NAN;
-    array<double, ORB_ELEMENT_NUM> OENAN;
+        dtsNAN[i] = DNAN;
+    array<long double, ORB_ELEMENT_NUM> OENAN;
     for (int i = 0; i < ORB_ELEMENT_NUM; i++)
-        OENAN[i] = NAN;
+        OENAN[i] = DNAN;
 
 
     Record rec{};
@@ -327,11 +375,21 @@ int main() {
         Bodyfold initFold = Bodyfold{sys};
 
         copy(initFold.massList.begin(), initFold.massList.end(), rec.massarr);
-        copy(initFold.posList.begin(), initFold.posList.end(), rec.init_parr);
-        copy(initFold.velList.begin(), initFold.velList.end(), rec.init_varr);
+
+        for (int i  = 0; i < NUM; i++) {
+            double* posdata = initFold.posList[i].data();
+            double* veldata = initFold.velList[i].data();
+
+            copy(posdata, posdata + DIM, rec.init_parr[i]);
+            copy(veldata, veldata + DIM, rec.init_varr[i]);
+        }
+
         rec.inclination = inc;
         rec.phase = phase;
         copy(dtsNAN.begin(), dtsNAN.end(), rec.dts);
+        copy(OENAN.begin(), OENAN.end(), rec.end_inner_OE);
+        copy(OENAN.begin(), OENAN.end(), rec.end_outer_OE);
+
 
         double initialEnergy = Bodyfold{sys}.sumEnergy();
 
@@ -407,23 +465,20 @@ int main() {
 
             powNow += powJump;
             if (simStatus == 1) {
+                if (haltStatus != Solver::haltStatus::DISSOLUTION) {
 
-                try {
+                    auto [innerOE, outerOE] = innerOuterOE(solver.bodyfold, haltStatus);
+                    auto innerArr = innerOE.asArray();
+                    auto outerArr = outerOE.asArray();
 
-                    auto bigOEArr = OrbitalElements::
-
-                } catch (std::domain_error &_) {
-
+                    copy(innerArr.begin(), innerArr.end(), rec.end_inner_OE);
+                    copy(outerArr.begin(), outerArr.end(), rec.end_outer_OE);
                 }
-
 
                 break;
 
             }
         }
-
-        //ALSO ORBITAL ELEMENTS
-
 
         copy(dts.begin(), dts.end(), rec.dts);
         copy(energyInfo.begin(), energyInfo.end(), rec.EAMax_POW);
@@ -433,6 +488,8 @@ int main() {
         rec.simStatus = simStatus;
         rec.haltStatus = haltStatus;
 
+        binfile.write(reinterpret_cast<char*>(&rec), sizeof(rec));
+        binfile.flush();
     }
 
 

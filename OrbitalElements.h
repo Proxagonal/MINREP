@@ -79,7 +79,9 @@ public:
 
         if (p < EPS) { // Degenerate linear case, every variable gets a slightly different meaning.
 
-            throw std::domain_error("Cannot use orbital parameters on linear orbit.");
+            return {DNAN, DNAN, DNAN, DNAN, DNAN, DNAN};
+
+            //throw std::domain_error("Cannot use orbital parameters on linear orbit.");
 
             //Vector3ld hat = abs(dp.x()) > abs(dp.z()) ? Vector3ld::UnitZ() : Vector3ld::UnitX();
             //Vector3ld unit = hat.cross(dp);

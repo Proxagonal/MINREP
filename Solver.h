@@ -44,7 +44,8 @@ public:
         UNDETERMINED=-1,
         ESCAPE_0=0,
         ESCAPE_1=1,
-        ESCAPE_2=2
+        ESCAPE_2=2,
+        DISSOLUTION=3
     };
 
 #if HALTCHECK

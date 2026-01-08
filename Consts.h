@@ -47,7 +47,7 @@ static double rand01() {
 
 const static streamsize DEFAULTDIGITS = std::cout.precision();
 constexpr static streamsize ALLDIGITS = std::numeric_limits<double>::max_digits10;
-
+#define DNAN numeric_limits<double>::quiet_NaN()
 
 
 #endif
