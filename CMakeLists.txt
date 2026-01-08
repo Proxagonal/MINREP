@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 4.0)
 project(MINREP)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -42,3 +42,7 @@ include_directories("include/eigen-3.4.0")
 find_package(SFML COMPONENTS graphics window REQUIRED)
 
 target_link_libraries(MINREP PUBLIC sfml-graphics sfml-window)
+
+find_package(HDF5 REQUIRED COMPONENTS C CXX)
+target_include_directories(MINREP PRIVATE ${HDF5_INCLUDE_DIRS})
+target_link_libraries(MINREP PRIVATE ${HDF5_CXX_LIBRARIES} ${HDF5_C_LIBRARIES})

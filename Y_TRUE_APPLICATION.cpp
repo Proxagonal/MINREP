@@ -11,6 +11,7 @@
 #include <algorithm>
 #include "OrbitalElements.h"
 #include <array>
+#include "H5Cpp.h"
 
 
 #define COMPS 12
@@ -29,71 +30,16 @@
 
 const double MAX_ENERGY_DEVIATION = pow(10, -5);
 
-
-struct BinHeader {
-    char DESCRIPTION[100];
-    char date[16];
-    int fieldCount;
-};
-
-enum class FieldType : uint8_t {
-    INT32   = 1,
-    INT64   = 2,
-    FLOAT32 = 3,
-    FLOAT64 = 4,
-    FLOAT128 = 5
-};
-
-// --- Field descriptor ---
-struct FieldDescriptor {
-    char name[32];       // null-terminated
-    FieldType type;      // type of the field
-    uint8_t ndim;        // number of dimensions
-    uint32_t shape[4];   // sizes of each dimension
-    uint8_t _pad[3];     // padding for alignment
-};
-
-// --- Helper to create a field descriptor ---
-FieldDescriptor make_field(const char* name, FieldType type, uint8_t ndim,
-                           uint32_t s0 = 0, uint32_t s1 = 0,
-                           uint32_t s2 = 0, uint32_t s3 = 0) {
-    FieldDescriptor fd{};
-    strncpy(fd.name, name, 31);
-    fd.type = type;
-    fd.ndim = ndim;
-    fd.shape[0] = s0;
-    fd.shape[1] = s1;
-    fd.shape[2] = s2;
-    fd.shape[3] = s3;
-    return fd;
-}
-
-    // --- List of fields for your Record ---
-FieldDescriptor fields[] = {
-    make_field("massarr",      FieldType::FLOAT64, 1, NUM),
-    make_field("init_parr",    FieldType::FLOAT64, 2, NUM, DIM),
-    make_field("init_varr",    FieldType::FLOAT64, 2, NUM, DIM),
-    make_field("end_inner_OE", FieldType::FLOAT128, 1, ORB_ELEMENT_NUM),
-    make_field("end_outer_OE", FieldType::FLOAT128, 1, ORB_ELEMENT_NUM),
-
-    make_field("inclination",  FieldType::FLOAT64, 0),
-    make_field("phase",        FieldType::FLOAT64, 0),
-
-    make_field("dts",          FieldType::FLOAT64, 1, POWNUM),
-    make_field("EAMax_POW",    FieldType::FLOAT64, 1, POWNUM),
-    make_field("endTime_POW",  FieldType::FLOAT64, 1, POWNUM),
-    make_field("realTime_POW", FieldType::FLOAT64, 1, POWNUM),
-    make_field("simStatus",    FieldType::INT32, 0),
-    make_field("haltStatus",   FieldType::INT32, 0)
-};
-
+using namespace std;
+using namespace Eigen;
+using namespace H5;
 
 
 struct Record {
 
-    double massarr[NUM];
-    double init_parr[NUM][DIM];
-    double init_varr[NUM][DIM];
+    double mass_arr[NUM];
+    double init_pos_arr[NUM][DIM];
+    double init_vel_arr[NUM][DIM];
     long double end_inner_OE[ORB_ELEMENT_NUM];
     long double end_outer_OE[ORB_ELEMENT_NUM];
 
@@ -108,10 +54,6 @@ struct Record {
     int simStatus;
     int haltStatus;
 };
-
-
-using namespace std;
-using namespace Eigen;
 
 
 struct InterProcessDoubleCounter {
@@ -276,6 +218,71 @@ mode_t mode = 0666 | S_IRWXU | S_IRWXG | S_IRWXO;
 
 int main() {
 
+    /*
+    FieldDescriptor fields[] = {
+    make_field("massarr",      FieldType::FLOAT64, 1, NUM),
+    make_field("init_parr",    FieldType::FLOAT64, 2, NUM, DIM),
+    make_field("init_varr",    FieldType::FLOAT64, 2, NUM, DIM),
+    make_field("end_inner_OE", FieldType::FLOAT128, 1, ORB_ELEMENT_NUM),
+    make_field("end_outer_OE", FieldType::FLOAT128, 1, ORB_ELEMENT_NUM),
+
+    make_field("inclination",  FieldType::FLOAT64, 0),
+    make_field("phase",        FieldType::FLOAT64, 0),
+
+    make_field("dts",          FieldType::FLOAT64, 1, POWNUM),
+    make_field("EAMax_POW",    FieldType::FLOAT64, 1, POWNUM),
+    make_field("endTime_POW",  FieldType::FLOAT64, 1, POWNUM),
+    make_field("realTime_POW", FieldType::FLOAT64, 1, POWNUM),
+    make_field("simStatus",    FieldType::INT32, 0),
+    make_field("haltStatus",   FieldType::INT32, 0)
+};
+     */
+
+    // Define dimensions for the arrays
+    hsize_t dims_num[1] = {NUM};
+    hsize_t dims_num_dim[2] = {NUM, DIM};
+    hsize_t dims_orb[1] = {ORB_ELEMENT_NUM};
+    hsize_t dims_pow[1] = {POWNUM};
+
+    // Create the HDF5 ArrayTypes
+    ArrayType massArrayT(PredType::NATIVE_DOUBLE, 1, dims_num);
+    ArrayType posVelArrayT(PredType::NATIVE_DOUBLE, 2, dims_num_dim);
+    ArrayType oeArrayT(PredType::NATIVE_LDOUBLE, 1, dims_orb);
+    ArrayType powArrayT(PredType::NATIVE_DOUBLE, 1, dims_pow);
+
+
+    CompType rectype(sizeof(Record));
+
+    // 1D Array
+    rectype.insertMember("mass_arr", HOFFSET(Record, mass_arr), massArrayT);
+
+    // 2D Arrays
+    rectype.insertMember("init_pos_arr", HOFFSET(Record, init_pos_arr), posVelArrayT);
+    rectype.insertMember("init_vel_arr", HOFFSET(Record, init_vel_arr), posVelArrayT);
+
+    // Long Double Arrays
+    rectype.insertMember("end_inner_OE", HOFFSET(Record, end_inner_OE), oeArrayT);
+    rectype.insertMember("end_outer_OE", HOFFSET(Record, end_outer_OE), oeArrayT);
+
+    // Simple Scalars
+    rectype.insertMember("inclination", HOFFSET(Record, inclination), PredType::NATIVE_DOUBLE);
+    rectype.insertMember("phase", HOFFSET(Record, phase), PredType::NATIVE_DOUBLE);
+
+    // POWNUM Arrays
+    rectype.insertMember("dts", HOFFSET(Record, dts), powArrayT);
+    rectype.insertMember("EAMax_POW", HOFFSET(Record, EAMax_POW), powArrayT);
+    rectype.insertMember("endTime_POW", HOFFSET(Record, endTime_POW), powArrayT);
+    rectype.insertMember("realTime_POW", HOFFSET(Record, realTime_POW), powArrayT);
+
+    // Integers
+    rectype.insertMember("simStatus", HOFFSET(Record, simStatus), PredType::NATIVE_INT);
+    rectype.insertMember("haltStatus", HOFFSET(Record, haltStatus), PredType::NATIVE_INT);
+
+    hsize_t init_sysnum[1] = {SAMPLE/COMPS/10};
+    hsize_t max_sysnum[1] = {SAMPLE};
+    hsize_t chunksize[1] = {SAMPLE/COMPS/20};
+
+
     string unixTime = to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     string path = PATHSTART + ("_" + unixTime + "/");
     mkdir(path.c_str(), mode);
@@ -290,7 +297,6 @@ int main() {
     pthread_mutexattr_init(&attr);
     pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);  // Set the mutex as process-shared
     pthread_mutex_init(&systemsLeft->mutex, &attr);
-
     pid_t pid;
     int index;
     for (int i = 0; i < COMPS - 1; i++) {
@@ -302,31 +308,16 @@ int main() {
     }
     if (pid != 0)
         index = COMPS - 1;
-
     string ID = to_string(index);
 
-    ofstream binfile(path + ID + string("_Records.bin"), ios::binary | ios::out);
+    //ofstream binfile(path + ID + string("_Records.bin"), ios::binary | ios::out);
 
-    if (!binfile) {
-        cerr << "Failed to open binary output file\n";
-        return 1;
-    }
 
-    auto today = floor<chrono::days>(std::chrono::system_clock::now());
-
-    std::chrono::year_month_day ymd{today};
-
-    BinHeader header;
-    strncpy(header.DESCRIPTION, "name", 99);
-
-    ostringstream ss;
-    ss << unsigned(ymd.day()) << "/" << unsigned(ymd.month()) << "/" << int(ymd.year());
-
-    strncpy(header.date, ss.str().c_str(), 15);
-    header.fieldCount = sizeof(fields)/sizeof(FieldDescriptor);
-
-    binfile.write(reinterpret_cast<char*>(&header), sizeof(header));
-    binfile.write(reinterpret_cast<char*>(fields), sizeof(fields));
+    H5File file(path + ID + string("_Records.bin"), H5F_ACC_TRUNC);
+    DataSpace *dataspace = new DataSpace(1, init_sysnum, max_sysnum);
+    DSetCreatPropList prop;
+    prop.setChunk(1, chunksize);
+    DataSet *dataset = new DataSet(file.createDataSet(ID, rectype, *dataspace, prop));
 
 
 
