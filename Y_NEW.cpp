@@ -20,19 +20,22 @@
 #include "H5Cpp.h"
 
 #define COMPS 12
-#define PATHSTART "/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
+#define PATHSTART "/home/ethan/Desktop/DATA/DATAOUT"
+//"/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
 //"/home/ethan/Desktop/DATA/DATAOUT"
 mode_t mode = 0666 | S_IRWXU | S_IRWXG | S_IRWXO;
 
-#define M1 20
-#define M2 20
-#define M3 20
+#define M1 12.5
+#define M2 15
+#define M3 17.5
 #define R12 10
 #define R12_3 100
 
 #define SAMPLE 100
 
 #define POWNUM 5
+
+#define DATANAME "name"
 
 const double MAX_ENERGY_DEVIATION = pow(10, -5);
 
@@ -51,7 +54,6 @@ struct Record {
     double end_inner_OE[ORB_ELEMENT_NUM] = {DNAN, DNAN, DNAN, DNAN, DNAN, DNAN};
     double end_outer_OE[ORB_ELEMENT_NUM] = {DNAN, DNAN, DNAN, DNAN, DNAN, DNAN};
 
-    double inclination;
     double phase;
 
     double dts[POWNUM] = {DNAN, DNAN, DNAN, DNAN, DNAN};
@@ -64,6 +66,20 @@ struct Record {
 };
 #pragma pack(pop)
 
+struct Feature {
+    string name;
+    int numOfDoubles;
+    size_t offset; // We'll calculate this automatically
+};
+
+// This list is now your "Single Source of Truth"
+std::vector<Feature> Schema = {
+    {"phase",         1, 0},
+    {"simStatus",     1, 0},
+    {"mass_arr",      NUM, 0},
+    {"end_inner_OE",  FeedType::ARRAY_OE, 0}
+};
+
 
 int toMils(std::chrono::steady_clock::time_point start, std::chrono::steady_clock::time_point end) {
     return (duration_cast<chrono::milliseconds>(end - start)).count();
@@ -72,9 +88,11 @@ std::chrono::steady_clock::time_point now() {
     return std::chrono::steady_clock::now();
 }
 
+Record runSystem();
+
 class ThreadPool {
 public:
-    ThreadPool(int threads, int total_tasks, std::vector<int>& results, std::mutex& mtx) {
+    ThreadPool(int threads, int total_tasks, H5File &file, std::mutex& mtx) {
         // Fill the queue with task indices (0 to 999)
         for (int i = 0; i < total_tasks; ++i) {
             tasks.push(i);
@@ -82,24 +100,46 @@ public:
 
         // Launch 12 worker threads
         for (int i = 0; i < threads; ++i) {
-            workers.emplace_back([this, &results, &mtx]() {
+            workers.emplace_back([this, &file, &mtx]() {
+
+                DataType datatype;
+                DataSet dataset;
+                {
+                    lock_guard<mutex> lock(queue_mutex);
+                    dataset = file.openDataSet(DATANAME);
+                    datatype = dataset.getDataType();
+                }
+
+
+
                 while (true) {
-                    int current_task;
+                    int current_task, left;
                     {
                         // Lock the queue to grab the next task safely
-                        std::lock_guard<std::mutex> lock(queue_mutex);
+                        lock_guard<mutex> lock(queue_mutex);
+                        left = tasks.size();
+                        cout << left << endl;
                         if (tasks.empty()) return; // No more work
                         current_task = tasks.front();
                         tasks.pop();
                     }
 
                     // Perform the calculation
-                    int res = calc(current_task);
+                    Record rec = runSystem();
+
 
                     // Safely append to the shared results list
                     {
-                        std::lock_guard<std::mutex> lock(mtx);
-                        results.push_back(res);
+                        lock_guard<mutex> lock(mtx);
+                        // offset: which row to write to
+                        // count: how many rows we are writing (just 1)
+                        hsize_t offset[1] = { (hsize_t)(SAMPLE - left) };
+                        hsize_t count[1] = { 1 };
+
+                        DataSpace fspace = dataset.getSpace();
+                        fspace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                        dataset.write(&rec, datatype, DataSpace(H5S_SCALAR), fspace);
+                        file.flush(H5F_SCOPE_GLOBAL);
                     }
                 }
             });
@@ -145,7 +185,6 @@ int main() {
     rectype.insertMember("end_outer_OE", HOFFSET(Record, end_outer_OE), oeArrayT);
 
     // Simple Scalars
-    rectype.insertMember("inclination", HOFFSET(Record, inclination), PredType::NATIVE_DOUBLE);
     rectype.insertMember("phase", HOFFSET(Record, phase), PredType::NATIVE_DOUBLE);
 
     // POWNUM Arrays
@@ -166,21 +205,18 @@ int main() {
 
     H5File file(path + string("DATA.h5"), H5F_ACC_TRUNC);
     DataSpace dataspace(1, datasize);
-    file.createDataSet("name...", rectype, dataspace);
+    file.createDataSet(DATANAME, rectype, dataspace);
 
 
 
-    std::vector<int> results;
     std::mutex results_mutex;
     const int num_threads = 12;
-    const int total_tasks = 1000;
 
     {
-        ThreadPool pool(num_threads, total_tasks, results, results_mutex);
+        ThreadPool pool(num_threads, SAMPLE, file, results_mutex);
         // Pool destructor joins threads here, ensuring all 1000 are done
     }
 
-    std::cout << "Done! Collected " << results.size() << " results." << std::endl;
     return 0;
 }
 
@@ -211,8 +247,8 @@ static tuple<OrbitalElements, OrbitalElements> innerOuterOE(const Bodyfold &body
 
 
 int b = 0.05;
-initialData generateSystem(double phase, double inc) {
-    return Solver::ergodicScatterRing3D_eccentric({M1, M2, M3}, R12, b*R12, R12_3, phase, 0, inc);
+initialData generateSystem(double phase) {
+    return Solver::ergodicScatterRing2D({M1, M2, M3}, R12, R12_3, phase);
 }
 
 
@@ -227,9 +263,8 @@ Record runSystem() {
     Record rec{};
 
     double phase = rand01() * 2 * M_PI;
-    double inc = rand01() * M_PI;
 
-    initialData sys = generateSystem(phase, inc);
+    initialData sys = generateSystem(phase);
 
     Bodyfold initFold = Bodyfold{sys};
 
@@ -246,7 +281,6 @@ Record runSystem() {
     //std::copy(initFold.posList.data()->data(), initFold.posList.data()->data() + 9, &posdata[0][0]);
     //std::copy(initFold.velList.data()->data(), initFold.velList.data()->data() + 9, &veldata[0][0]);
 
-    rec.inclination = inc;
     rec.phase = phase;
 
 
@@ -261,8 +295,8 @@ Record runSystem() {
     //vector<tuple<int, int, double, double, double, double, double, double>> SOWInfo;
     //vector<tuple<int, double, double, double, double>> SKIPInfo;
 
-    int simStatus = -1;
-    int haltStatus = Solver::haltStatus::UNDETERMINED;
+    int simStatus;
+    int haltStatus;
     unique_ptr<Bodyfold> finalBF;
 
     int powNow = powStart;
@@ -273,6 +307,8 @@ Record runSystem() {
         Solver solver(dt, sys);
 
         Solver::excursionStatus exc_status = Solver::excursionStatus::NONE;
+        simStatus = -1;
+        haltStatus = Solver::haltStatus::UNDETERMINED;
         double EAMax = 0;
         auto start = now();
         while (true) {
@@ -348,5 +384,5 @@ Record runSystem() {
     rec.simStatus = simStatus;
     rec.haltStatus = haltStatus;
 
-
+    return rec;
 }
