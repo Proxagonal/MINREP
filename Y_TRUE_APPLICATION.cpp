@@ -24,7 +24,7 @@
 #define R12 10
 #define R12_3 100
 
-#define SAMPLE 10000
+#define SAMPLE 100
 
 #define POWNUM 5
 
@@ -34,14 +34,14 @@ using namespace std;
 using namespace Eigen;
 using namespace H5;
 
-
+#pragma pack(push, 1)
 struct Record {
 
     double mass_arr[NUM];
     double init_pos_arr[NUM][DIM];
     double init_vel_arr[NUM][DIM];
-    long double end_inner_OE[ORB_ELEMENT_NUM];
-    long double end_outer_OE[ORB_ELEMENT_NUM];
+    double end_inner_OE[ORB_ELEMENT_NUM];
+    double end_outer_OE[ORB_ELEMENT_NUM];
 
     double inclination;
     double phase;
@@ -54,6 +54,7 @@ struct Record {
     int simStatus;
     int haltStatus;
 };
+#pragma pack(pop)
 
 
 struct InterProcessDoubleCounter {
@@ -214,29 +215,18 @@ static tuple<OrbitalElements, OrbitalElements> innerOuterOE(Bodyfold &bodyfold, 
 }
 
 
+int splitThreads() {
+
+}
+
+
+
+
+
+
 mode_t mode = 0666 | S_IRWXU | S_IRWXG | S_IRWXO;
 
 int main() {
-
-    /*
-    FieldDescriptor fields[] = {
-    make_field("massarr",      FieldType::FLOAT64, 1, NUM),
-    make_field("init_parr",    FieldType::FLOAT64, 2, NUM, DIM),
-    make_field("init_varr",    FieldType::FLOAT64, 2, NUM, DIM),
-    make_field("end_inner_OE", FieldType::FLOAT128, 1, ORB_ELEMENT_NUM),
-    make_field("end_outer_OE", FieldType::FLOAT128, 1, ORB_ELEMENT_NUM),
-
-    make_field("inclination",  FieldType::FLOAT64, 0),
-    make_field("phase",        FieldType::FLOAT64, 0),
-
-    make_field("dts",          FieldType::FLOAT64, 1, POWNUM),
-    make_field("EAMax_POW",    FieldType::FLOAT64, 1, POWNUM),
-    make_field("endTime_POW",  FieldType::FLOAT64, 1, POWNUM),
-    make_field("realTime_POW", FieldType::FLOAT64, 1, POWNUM),
-    make_field("simStatus",    FieldType::INT32, 0),
-    make_field("haltStatus",   FieldType::INT32, 0)
-};
-     */
 
     // Define dimensions for the arrays
     hsize_t dims_num[1] = {NUM};
@@ -247,7 +237,7 @@ int main() {
     // Create the HDF5 ArrayTypes
     ArrayType massArrayT(PredType::NATIVE_DOUBLE, 1, dims_num);
     ArrayType posVelArrayT(PredType::NATIVE_DOUBLE, 2, dims_num_dim);
-    ArrayType oeArrayT(PredType::NATIVE_LDOUBLE, 1, dims_orb);
+    ArrayType oeArrayT(PredType::NATIVE_DOUBLE, 1, dims_orb);
     ArrayType powArrayT(PredType::NATIVE_DOUBLE, 1, dims_pow);
 
 
@@ -278,14 +268,16 @@ int main() {
     rectype.insertMember("simStatus", HOFFSET(Record, simStatus), PredType::NATIVE_INT);
     rectype.insertMember("haltStatus", HOFFSET(Record, haltStatus), PredType::NATIVE_INT);
 
-    hsize_t init_sysnum[1] = {SAMPLE/COMPS/10};
-    hsize_t max_sysnum[1] = {SAMPLE};
-    hsize_t chunksize[1] = {SAMPLE/COMPS/20};
-
-
     string unixTime = to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     string path = PATHSTART + ("_" + unixTime + "/");
     mkdir(path.c_str(), mode);
+
+    hsize_t datasize[1] = {SAMPLE};
+    {
+        H5File tempfile(path + string("DATA.h5"), H5F_ACC_TRUNC);
+        DataSpace dataspace(1, datasize);
+        tempfile.createDataSet("name...", rectype, dataspace);
+    }
 
     auto* systemsLeft = static_cast<InterProcessCounter*>(mmap(nullptr, sizeof(InterProcessCounter), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
 
@@ -311,14 +303,8 @@ int main() {
     string ID = to_string(index);
 
     //ofstream binfile(path + ID + string("_Records.bin"), ios::binary | ios::out);
-
-
-    H5File file(path + ID + string("_Records.bin"), H5F_ACC_TRUNC);
-    DataSpace *dataspace = new DataSpace(1, init_sysnum, max_sysnum);
-    DSetCreatPropList prop;
-    prop.setChunk(1, chunksize);
-    DataSet *dataset = new DataSet(file.createDataSet(ID, rectype, *dataspace, prop));
-
+    H5File file(path + string("DATA.h5"), H5F_ACC_RDWR);
+    DataSet dataset = file.openDataSet("name...");
 
 
     array<double, POWNUM> dtsNAN;
@@ -327,9 +313,6 @@ int main() {
     array<long double, ORB_ELEMENT_NUM> OENAN;
     for (int i = 0; i < ORB_ELEMENT_NUM; i++)
         OENAN[i] = DNAN;
-
-
-    Record rec{};
 
     int T = pow(10, 7);
 
@@ -356,6 +339,7 @@ int main() {
 
         pthread_mutex_unlock(&systemsLeft->mutex);
 
+        Record rec{};
 
         double phase = rand01() * 2 * M_PI;
         double inc = rand01() * M_PI;
@@ -365,14 +349,14 @@ int main() {
 
         Bodyfold initFold = Bodyfold{sys};
 
-        copy(initFold.massList.begin(), initFold.massList.end(), rec.massarr);
+        copy(initFold.massList.begin(), initFold.massList.end(), rec.mass_arr);
 
         for (int i  = 0; i < NUM; i++) {
             double* posdata = initFold.posList[i].data();
             double* veldata = initFold.velList[i].data();
 
-            copy(posdata, posdata + DIM, rec.init_parr[i]);
-            copy(veldata, veldata + DIM, rec.init_varr[i]);
+            copy(posdata, posdata + DIM, rec.init_pos_arr[i]);
+            copy(veldata, veldata + DIM, rec.init_vel_arr[i]);
         }
 
         rec.inclination = inc;
@@ -479,8 +463,21 @@ int main() {
         rec.simStatus = simStatus;
         rec.haltStatus = haltStatus;
 
-        binfile.write(reinterpret_cast<char*>(&rec), sizeof(rec));
-        binfile.flush();
+        pthread_mutex_lock(&systemsLeft->mutex);
+
+        cout << SAMPLE - left << ": " << rec.mass_arr[0] << endl;
+
+        // offset: which row to write to
+        // count: how many rows we are writing (just 1)
+        hsize_t offset[1] = { (hsize_t)(SAMPLE - left) };
+        hsize_t count[1] = { 1 };
+
+        DataSpace fspace = dataset.getSpace();
+        fspace.selectHyperslab(H5S_SELECT_SET, count, offset);
+        dataset.write(&rec, rectype, DataSpace(H5S_SCALAR), fspace);
+        file.flush(H5F_SCOPE_GLOBAL);
+
+        pthread_mutex_unlock(&systemsLeft->mutex);
     }
 
 
