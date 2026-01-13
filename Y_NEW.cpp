@@ -11,13 +11,13 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <semaphore.h>
 #include <sys/mman.h>
 #include <map>
 #include <algorithm>
 #include "OrbitalElements.h"
 #include <array>
 #include "H5Cpp.h"
+#include <condition_variable>
 
 #define COMPS 12
 #define PATHSTART "/home/ethan/Desktop/DATA/DATAOUT"
@@ -44,27 +44,6 @@ using namespace std;
 using namespace Eigen;
 using namespace H5;
 
-
-#pragma pack(push, 1)
-struct Record {
-
-    double mass_arr[NUM];
-    double init_pos_arr[NUM][DIM];
-    double init_vel_arr[NUM][DIM];
-    double end_inner_OE[ORB_ELEMENT_NUM] = {DNAN, DNAN, DNAN, DNAN, DNAN, DNAN};
-    double end_outer_OE[ORB_ELEMENT_NUM] = {DNAN, DNAN, DNAN, DNAN, DNAN, DNAN};
-
-    double phase;
-
-    double dts[POWNUM] = {DNAN, DNAN, DNAN, DNAN, DNAN};
-    double EAMax_POW[POWNUM];
-    double endTime_POW[POWNUM];
-    double realTime_POW[POWNUM];
-
-    int simStatus;
-    int haltStatus;
-};
-#pragma pack(pop)
 
 struct Feature {
     string name;
@@ -147,17 +126,11 @@ class DynamicRecord {
 
     void set(const string &var, const double* arr, size_t N) {
         auto [offset, size] = getFieldInfo(var);
-        if (N != size) throw std::logic_error("Size mismatch for " + var);
+        if (N > size) throw std::logic_error("Size mismatch for " + var);
 
-        for (size_t i = 0; i < size; ++i)
+        for (size_t i = 0; i < N; ++i)
             buffer[offset + i] = arr[i];
     }
-    /*void set(const string &var, const double* arr) {
-        auto [offset, size] = getFieldInfo(var);
-
-        for (size_t i = 0; i < size; ++i)
-            buffer[offset + i] = arr[i];
-    }*/
 
     private:
     // Helper to find where a name lives in the flat buffer
@@ -181,132 +154,105 @@ std::chrono::steady_clock::time_point now() {
 
 DynamicRecord runSystem();
 
-class ThreadPool {
-public:
-    ThreadPool(int threads, int total_tasks, H5File &file, std::mutex& mtx) {
-        // Fill the queue with task indices (0 to 999)
-        for (int i = 0; i < total_tasks; ++i) {
-            tasks.push(i);
+
+queue<DynamicRecord> writeQueue;
+mutex queueMtx;
+condition_variable cv;
+bool allTasksSubmitted = false;
+
+// --- The Consumer: HDF5 Writer Thread ---
+
+void hdf5Writer(string filePath) {
+
+    H5File file(filePath, H5F_ACC_TRUNC);
+    CompType mtype = buildCompType();
+    hsize_t dims[1] = {(hsize_t)SAMPLE};
+    DataSpace fspace(1, dims);
+    DataSet dataset = file.createDataSet(DATANAME, mtype, fspace);
+
+    hsize_t one[1] = {1};
+    DataSpace onespace(1, one);
+
+    hsize_t count = 0;
+    while (true) {
+        DynamicRecord rec;
+        {
+            unique_lock<mutex> lock(queueMtx);
+            cv.wait(lock, [] { return !writeQueue.empty() || allTasksSubmitted; });
+
+            if (writeQueue.empty() && allTasksSubmitted) break;
+
+            rec = std::move(writeQueue.front());
+            writeQueue.pop();
         }
 
-        // Launch 12 worker threads
-        for (int i = 0; i < threads; ++i) {
-            workers.emplace_back([this, &file, &mtx]() {
+        // Target the specific row based on the simulation task index
+        hsize_t offset[1] = {count};
+        DataSpace currentFSpace = dataset.getSpace();
+        currentFSpace.selectHyperslab(H5S_SELECT_SET, one, offset);
 
-                DataType datatype;
-                DataSet dataset;
-                {
-                    lock_guard<mutex> lock(queue_mutex);
-                    dataset = file.openDataSet(DATANAME);
-                    datatype = dataset.getDataType();
-                }
+        dataset.write(rec.data(), mtype, onespace, currentFSpace);
+        count++;
+        cout << count << endl;
+    }
+    file.close();
+}
 
+// --- The Producers: Worker Threads ---
 
+void worker(queue<int>& tasks, mutex& taskMtx) {
+    while (true) {
+        int taskIndex;
+        {
+            lock_guard<mutex> lock(taskMtx);
+            if (tasks.empty()) return;
+            taskIndex = tasks.front();
+            tasks.pop();
+        }
 
-                while (true) {
-                    int current_task, left;
-                    {
-                        // Lock the queue to grab the next task safely
-                        lock_guard<mutex> lock(queue_mutex);
-                        left = tasks.size();
-                        cout << left << endl;
-                        if (tasks.empty()) return; // No more work
-                        current_task = tasks.front();
-                        tasks.pop();
-                    }
+        // Long-running simulation
+        DynamicRecord rec = runSystem();
 
-                    // Perform the calculation
-                    DynamicRecord rec = runSystem();
-
-
-                    // Safely append to the shared results list
-                    {
-                        lock_guard<mutex> lock(mtx);
-                        // offset: which row to write to
-                        // count: how many rows we are writing (just 1)
-                        hsize_t offset[1] = { (hsize_t)(SAMPLE - left) };
-                        hsize_t count[1] = { 1 };
-
-                        DataSpace fspace = dataset.getSpace();
-                        fspace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                        dataset.write(rec.data(), datatype, DataSpace(H5S_SCALAR), fspace);
-                        file.flush(H5F_SCOPE_GLOBAL);
-                    }
-                }
-            });
+        // Queue the result for the writer
+        {
+            lock_guard<mutex> lock(queueMtx);
+            writeQueue.push(std::move(rec));
+            cv.notify_one();
         }
     }
-
-    ~ThreadPool() {
-        for (auto& worker : workers) worker.join();
-    }
-
-private:
-    std::queue<int> tasks;
-    std::vector<std::thread> workers;
-    std::mutex queue_mutex;
-};
+}
 
 int main() {
-
-    /*// Define dimensions for the arrays
-    hsize_t dims_num[1] = {NUM};
-    hsize_t dims_num_dim[2] = {NUM, DIM};
-    hsize_t dims_orb[1] = {ORB_ELEMENT_NUM};
-    hsize_t dims_pow[1] = {POWNUM};
-
-    // Create the HDF5 ArrayTypes
-    ArrayType massArrayT(PredType::NATIVE_DOUBLE, 1, dims_num);
-    ArrayType posVelArrayT(PredType::NATIVE_DOUBLE, 2, dims_num_dim);
-    ArrayType oeArrayT(PredType::NATIVE_DOUBLE, 1, dims_orb);
-    ArrayType powArrayT(PredType::NATIVE_DOUBLE, 1, dims_pow);
-
-
-    CompType rectype(sizeof(Record));
-
-    // 1D Array
-    rectype.insertMember("mass_arr", HOFFSET(Record, mass_arr), massArrayT);
-
-    // 2D Arrays
-    rectype.insertMember("init_pos_arr", HOFFSET(Record, init_pos_arr), posVelArrayT);
-    rectype.insertMember("init_vel_arr", HOFFSET(Record, init_vel_arr), posVelArrayT);
-
-    // Long Double Arrays
-    rectype.insertMember("end_inner_OE", HOFFSET(Record, end_inner_OE), oeArrayT);
-    rectype.insertMember("end_outer_OE", HOFFSET(Record, end_outer_OE), oeArrayT);
-
-    // Simple Scalars
-    rectype.insertMember("phase", HOFFSET(Record, phase), PredType::NATIVE_DOUBLE);
-
-    // POWNUM Arrays
-    rectype.insertMember("dts", HOFFSET(Record, dts), powArrayT);
-    rectype.insertMember("EAMax_POW", HOFFSET(Record, EAMax_POW), powArrayT);
-    rectype.insertMember("endTime_POW", HOFFSET(Record, endTime_POW), powArrayT);
-    rectype.insertMember("realTime_POW", HOFFSET(Record, realTime_POW), powArrayT);
-
-    // Integers
-    rectype.insertMember("simStatus", HOFFSET(Record, simStatus), PredType::NATIVE_INT);
-    rectype.insertMember("haltStatus", HOFFSET(Record, haltStatus), PredType::NATIVE_INT);*/
 
     string unixTime = to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     string path = PATHSTART + ("_" + unixTime + "/");
     mkdir(path.c_str(), mode);
 
-    hsize_t datasize[1] = {SAMPLE};
+    string fullpath = path + string("DATA.h5");
 
-    H5File file(path + string("DATA.h5"), H5F_ACC_TRUNC);
-    DataSpace dataspace(1, datasize);
-    file.createDataSet(DATANAME, buildCompType(), dataspace);
+    queue<int> tasks;
+    for (int i = 0; i < SAMPLE; ++i) tasks.push(i);
+    mutex taskMtx;
 
+    // 3. Start the Single Writer Thread
+    thread writer(hdf5Writer, fullpath);
 
-
-    std::mutex results_mutex;
-    const int num_threads = 12;
-
-    {
-        ThreadPool pool(num_threads, SAMPLE, file, results_mutex);
-        // Pool destructor joins threads here, ensuring all 1000 are done
+    // 4. Start Worker Threads
+    vector<thread> workers;
+    for (int i = 0; i < 12; ++i) {
+        workers.emplace_back(worker, ref(tasks), ref(taskMtx));
     }
+
+    // 5. Wait for Workers to finish simulations
+    for (auto& w : workers) w.join();
+
+    // 6. Signal Writer to wrap up and join
+    {
+        lock_guard<mutex> lock(queueMtx);
+        allTasksSubmitted = true;
+        cv.notify_one();
+    }
+    writer.join();
 
     return 0;
 }
@@ -351,9 +297,7 @@ int powOver = powStart - POWNUM;
 
 DynamicRecord runSystem() {
 
-    //Record rec{};
     DynamicRecord record;
-
 
     double phase = rand01() * 2 * M_PI;
 
@@ -419,10 +363,9 @@ DynamicRecord runSystem() {
                     simStatus = 0;
             }
 
-            if (simStatus != -1) {
-                energyInfo.emplace_back(EAMax);
+            if (simStatus != -1)
                 break;
-            }
+
 
         }
         //SEEInfo = solver.SEEInfo;
@@ -456,22 +399,13 @@ DynamicRecord runSystem() {
     record.set("phase", phase);
 
     record.set("dts", dts);
+
+
     record.set("EAMax_POW", energyInfo);
     record.set("endTime_POW", timeStopInfo);
     record.set("realTime_POW", realTimeInfo);
     record.set("simStatus", simStatus);
     record.set("haltStatus", haltStatus);
-
-
-
-
-    //copy(dts.begin(), dts.end(), rec.dts);
-    //copy(energyInfo.begin(), energyInfo.end(), rec.EAMax_POW);
-    //copy(timeStopInfo.begin(), timeStopInfo.end(), rec.endTime_POW);
-    //copy(realTimeInfo.begin(), realTimeInfo.end(), rec.realTime_POW);
-
-    //rec.simStatus = simStatus;
-    //rec.haltStatus = haltStatus;
 
     return record;
 }
