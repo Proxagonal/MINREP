@@ -68,16 +68,107 @@ struct Record {
 
 struct Feature {
     string name;
-    int numOfDoubles;
-    size_t offset; // We'll calculate this automatically
+    hsize_t numOfDoubles;
+    size_t offset;
 };
 
-// This list is now your "Single Source of Truth"
-std::vector<Feature> Schema = {
-    {"phase",         1, 0},
-    {"simStatus",     1, 0},
+vector<Feature> Schema = {
     {"mass_arr",      NUM, 0},
-    {"end_inner_OE",  FeedType::ARRAY_OE, 0}
+    {"init_pos_arr",  NUM * DIM, 0},
+    {"init_vel_arr",  NUM * DIM, 0},
+    {"end_inner_OE",  ORB_ELEMENT_NUM, 0},
+    {"end_outer_OE",  ORB_ELEMENT_NUM, 0},
+    {"phase",         1, 0},
+    {"dts",           POWNUM, 0},
+    {"EAMax_POW",     POWNUM, 0},
+    {"endTime_POW",   POWNUM, 0},
+    {"realTime_POW",  POWNUM, 0},
+    {"simStatus",     1, 0},
+    {"haltStatus",    1, 0}
+};
+
+CompType buildCompType() {
+    size_t current_offset = 0;
+    // Calculate total size first
+    for (auto& f : Schema) {
+        f.offset = current_offset;
+        current_offset += f.numOfDoubles * sizeof(double);
+    }
+
+    CompType mtype(current_offset);
+    for (auto& f : Schema) {
+        if (f.numOfDoubles == 1) {
+            mtype.insertMember(f.name, f.offset, PredType::NATIVE_DOUBLE);
+        } else {
+            hsize_t d[1] = { f.numOfDoubles };
+            ArrayType atype(PredType::NATIVE_DOUBLE, 1, d);
+            mtype.insertMember(f.name, f.offset, atype);
+        }
+    }
+    mtype.pack();
+    return mtype;
+}
+
+class DynamicRecord {
+    public:
+    vector<double> buffer;
+
+    // Use a static method or global to get the total size once
+    DynamicRecord() {
+        size_t totalDoubles = 0;
+        for (const auto& f : Schema) totalDoubles += f.numOfDoubles;
+
+        // Initialize the whole buffer with NAN immediately
+        buffer.assign(totalDoubles, std::numeric_limits<double>::quiet_NaN());
+    }
+
+    // Crucial: HDF5 needs the raw pointer to the double array
+    const void* data() const { return buffer.data(); }
+
+    void set(const string &var, double value) {
+        auto [offset, size] = getFieldInfo(var);
+        if (size != 1) throw std::logic_error(var + " is an array, use vector set.");
+        buffer[offset] = value;
+    }
+
+    void set(const string &var, const vector<double> &values) {
+        set(var, values.data(), values.size());
+    }
+
+    template <size_t N>
+    void set(const string &var, const double (&arr)[N]) {
+        set(var, arr, N);
+    }
+
+    template <size_t N>
+    void set(const string &var, array<double, N> arr) {
+        set(var, arr.data(), N);
+    }
+
+    void set(const string &var, const double* arr, size_t N) {
+        auto [offset, size] = getFieldInfo(var);
+        if (N != size) throw std::logic_error("Size mismatch for " + var);
+
+        for (size_t i = 0; i < size; ++i)
+            buffer[offset + i] = arr[i];
+    }
+    /*void set(const string &var, const double* arr) {
+        auto [offset, size] = getFieldInfo(var);
+
+        for (size_t i = 0; i < size; ++i)
+            buffer[offset + i] = arr[i];
+    }*/
+
+    private:
+    // Helper to find where a name lives in the flat buffer
+    pair<size_t, size_t> getFieldInfo(const string& name) {
+        size_t current_offset = 0;
+        for (const auto& f : Schema) {
+            if (f.name == name) return {current_offset, f.numOfDoubles};
+            current_offset += f.numOfDoubles;
+        }
+        throw std::logic_error("Field " + name + " not in Schema");
+    }
 };
 
 
@@ -88,7 +179,7 @@ std::chrono::steady_clock::time_point now() {
     return std::chrono::steady_clock::now();
 }
 
-Record runSystem();
+DynamicRecord runSystem();
 
 class ThreadPool {
 public:
@@ -125,7 +216,7 @@ public:
                     }
 
                     // Perform the calculation
-                    Record rec = runSystem();
+                    DynamicRecord rec = runSystem();
 
 
                     // Safely append to the shared results list
@@ -138,7 +229,7 @@ public:
 
                         DataSpace fspace = dataset.getSpace();
                         fspace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                        dataset.write(&rec, datatype, DataSpace(H5S_SCALAR), fspace);
+                        dataset.write(rec.data(), datatype, DataSpace(H5S_SCALAR), fspace);
                         file.flush(H5F_SCOPE_GLOBAL);
                     }
                 }
@@ -158,7 +249,7 @@ private:
 
 int main() {
 
-    // Define dimensions for the arrays
+    /*// Define dimensions for the arrays
     hsize_t dims_num[1] = {NUM};
     hsize_t dims_num_dim[2] = {NUM, DIM};
     hsize_t dims_orb[1] = {ORB_ELEMENT_NUM};
@@ -195,7 +286,7 @@ int main() {
 
     // Integers
     rectype.insertMember("simStatus", HOFFSET(Record, simStatus), PredType::NATIVE_INT);
-    rectype.insertMember("haltStatus", HOFFSET(Record, haltStatus), PredType::NATIVE_INT);
+    rectype.insertMember("haltStatus", HOFFSET(Record, haltStatus), PredType::NATIVE_INT);*/
 
     string unixTime = to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     string path = PATHSTART + ("_" + unixTime + "/");
@@ -205,7 +296,7 @@ int main() {
 
     H5File file(path + string("DATA.h5"), H5F_ACC_TRUNC);
     DataSpace dataspace(1, datasize);
-    file.createDataSet(DATANAME, rectype, dataspace);
+    file.createDataSet(DATANAME, buildCompType(), dataspace);
 
 
 
@@ -258,33 +349,18 @@ int powStart = -3;
 int powJump = -1;
 int powOver = powStart - POWNUM;
 
-Record runSystem() {
+DynamicRecord runSystem() {
 
-    Record rec{};
+    //Record rec{};
+    DynamicRecord record;
+
 
     double phase = rand01() * 2 * M_PI;
 
-    initialData sys = generateSystem(phase);
+    initialData initConditions = generateSystem(phase);
+    Bodyfold initialSystem(initConditions);
 
-    Bodyfold initFold = Bodyfold{sys};
-
-    copy(initFold.massList.begin(), initFold.massList.end(), rec.mass_arr);
-
-    for (int i  = 0; i < NUM; i++) {
-        double* posdata = initFold.posList[i].data();
-        double* veldata = initFold.velList[i].data();
-
-        copy(posdata, posdata + DIM, rec.init_pos_arr[i]);
-        copy(veldata, veldata + DIM, rec.init_vel_arr[i]);
-    }
-
-    //std::copy(initFold.posList.data()->data(), initFold.posList.data()->data() + 9, &posdata[0][0]);
-    //std::copy(initFold.velList.data()->data(), initFold.velList.data()->data() + 9, &veldata[0][0]);
-
-    rec.phase = phase;
-
-
-    double initialEnergy = Bodyfold{sys}.sumEnergy();
+    double initialEnergy = initialSystem.sumEnergy();
 
     vector<double> dts;
     vector<double> energyInfo;
@@ -304,7 +380,7 @@ Record runSystem() {
 
         double dt = pow(10, powNow);
 
-        Solver solver(dt, sys);
+        Solver solver(dt, initialSystem);
 
         Solver::excursionStatus exc_status = Solver::excursionStatus::NONE;
         simStatus = -1;
@@ -369,20 +445,33 @@ Record runSystem() {
     if (simStatus == 1 && haltStatus != Solver::haltStatus::DISSOLUTION) {
 
         auto [innerOE, outerOE] = innerOuterOE(*finalBF, haltStatus);
-        auto innerArr = innerOE.asArray();
-        auto outerArr = outerOE.asArray();
 
-        copy(innerArr.begin(), innerArr.end(), rec.end_inner_OE);
-        copy(outerArr.begin(), outerArr.end(), rec.end_outer_OE);
+        record.set("end_inner_OE", innerOE.asDoubleArray());
+        record.set("end_outer_OE", outerOE.asDoubleArray());
     }
 
-    copy(dts.begin(), dts.end(), rec.dts);
-    copy(energyInfo.begin(), energyInfo.end(), rec.EAMax_POW);
-    copy(timeStopInfo.begin(), timeStopInfo.end(), rec.endTime_POW);
-    copy(realTimeInfo.begin(), realTimeInfo.end(), rec.realTime_POW);
+    record.set("mass_arr", initialSystem.massList);
+    record.set("init_pos_arr", (double*) initialSystem.posList.data(), NUM*DIM);
+    record.set("init_vel_arr", (double*) initialSystem.velList.data(), NUM*DIM);
+    record.set("phase", phase);
 
-    rec.simStatus = simStatus;
-    rec.haltStatus = haltStatus;
+    record.set("dts", dts);
+    record.set("EAMax_POW", energyInfo);
+    record.set("endTime_POW", timeStopInfo);
+    record.set("realTime_POW", realTimeInfo);
+    record.set("simStatus", simStatus);
+    record.set("haltStatus", haltStatus);
 
-    return rec;
+
+
+
+    //copy(dts.begin(), dts.end(), rec.dts);
+    //copy(energyInfo.begin(), energyInfo.end(), rec.EAMax_POW);
+    //copy(timeStopInfo.begin(), timeStopInfo.end(), rec.endTime_POW);
+    //copy(realTimeInfo.begin(), realTimeInfo.end(), rec.realTime_POW);
+
+    //rec.simStatus = simStatus;
+    //rec.haltStatus = haltStatus;
+
+    return record;
 }

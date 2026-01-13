@@ -58,6 +58,15 @@ public:
                     inclination,
                     trueAnomaly};
     }
+    array<double, ORB_ELEMENT_NUM> asDoubleArray() const {
+
+        return {(double)eccentricity,
+                    (double)semiLatusRectum,
+                    (double)argOfPeriapsis,
+                    (double)longAscendingNode,
+                    (double)inclination,
+                    (double)trueAnomaly};
+    }
 
     static OrbitalElements calcOrbitalElements(const long double m1, const long double m2, const VectorDld &Ddp, const VectorDld &Ddv) {
 

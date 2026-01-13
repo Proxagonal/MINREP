@@ -176,6 +176,13 @@ public:
     {
         updateAccelerations();
     }
+    Solver(double givenDt, const Bodyfold &bf, int skipChecksPerCT=1, int SeeChecksPerCT=500)
+    : bodyfold{bf}, dt{givenDt},
+        skip_checkPer{crossingTimePasses / skipChecksPerCT},
+        see_checkPer{crossingTimePasses / SeeChecksPerCT}
+    {
+        updateAccelerations();
+    }
 
 
     long pass = 0;
