@@ -58,10 +58,13 @@ vector<Feature> Schema = {
     {"end_inner_OE",  ORB_ELEMENT_NUM, 0},
     {"end_outer_OE",  ORB_ELEMENT_NUM, 0},
     {"phase",         1, 0},
-    {"dts",           POWNUM, 0},
-    {"EAMax_POW",     POWNUM, 0},
-    {"endTime_POW",   POWNUM, 0},
-    {"realTime_POW",  POWNUM, 0},
+    //{"dts",           POWNUM, 0},
+    //{"EAMax_POW",     POWNUM, 0},
+    //{"endTime_POW",   POWNUM, 0},
+    //{"realTime_POW",  POWNUM, 0},
+    {"endTime",         1, 0},
+    {"lastExcursionTime",         1, 0},
+    {"scrambleNumber", 1, 0},
     {"simStatus",     1, 0},
     {"haltStatus",    1, 0}
 };
@@ -144,7 +147,6 @@ class DynamicRecord {
     }
 };
 
-
 int toMils(std::chrono::steady_clock::time_point start, std::chrono::steady_clock::time_point end) {
     return (duration_cast<chrono::milliseconds>(end - start)).count();
 }
@@ -159,8 +161,6 @@ queue<DynamicRecord> writeQueue;
 mutex queueMtx;
 condition_variable cv;
 bool allTasksSubmitted = false;
-
-// --- The Consumer: HDF5 Writer Thread ---
 
 void hdf5Writer(string filePath) {
 
@@ -197,8 +197,6 @@ void hdf5Writer(string filePath) {
     }
     file.close();
 }
-
-// --- The Producers: Worker Threads ---
 
 void worker(queue<int>& tasks, mutex& taskMtx) {
     while (true) {
@@ -317,6 +315,8 @@ DynamicRecord runSystem() {
 
     int simStatus;
     int haltStatus;
+    double excursionTime = -1;
+    double simTime = -1;
     unique_ptr<Bodyfold> finalBF;
 
     int powNow = powStart;
@@ -331,21 +331,22 @@ DynamicRecord runSystem() {
         haltStatus = Solver::haltStatus::UNDETERMINED;
         double EAMax = 0;
         auto start = now();
+
         while (true) {
 
             solver.runIteration();
 
-            /*if (solver.pass % solver.see_checkPer && exc_status != solver.exc_status) {
+            if (solver.pass % solver.see_checkPer && exc_status != solver.exc_status) {
 
-                if (solver.exc_status == Solver::excursionStatus::SUSPECTED)
-                    cout << "Exc Potential Time: " << solver.time() << endl;
-                if (solver.exc_status == Solver::excursionStatus::RETURNING)
-                    cout << "AARatio: " << solver.AARatio(solver.exc_body) << endl;
-                if (solver.exc_status == Solver::excursionStatus::NONE && exc_status == Solver::excursionStatus::RETURNING)
-                    cout << "EXC Done at: " << solver.time() << endl;
+                //if (solver.exc_status == Solver::excursionStatus::SUSPECTED)
+                //    //cout << "Exc Potential Time: " << solver.time() << endl;
+                //if (solver.exc_status == Solver::excursionStatus::RETURNING)
+                //    cout << "AARatio: " << solver.AARatio(solver.exc_body) << endl;
+                if (exc_status == Solver::excursionStatus::RETURNING && solver.exc_status == Solver::excursionStatus::NONE)
+                    excursionTime = solver.time();
 
                 exc_status = (Solver::excursionStatus)solver.exc_status;
-            }*/
+            }
 
             if (solver.pass % solver.crossingTimePasses == 0) {
                 if (solver.haltCheck() != Solver::haltStatus::UNDETERMINED) {
@@ -372,15 +373,16 @@ DynamicRecord runSystem() {
         //SOWInfo = solver.SOWInfo;
         //SKIPInfo = solver.SKIPInfo;
 
-        dts.emplace_back(solver.dt);
-        realTimeInfo.emplace_back(toMils(start, now()));
-        energyInfo.emplace_back(EAMax);
-        timeStopInfo.emplace_back(solver.time());
+        //dts.emplace_back(solver.dt);
+        //realTimeInfo.emplace_back(toMils(start, now()));
+        //energyInfo.emplace_back(EAMax);
+        //timeStopInfo.emplace_back(solver.time());
 
 
         powNow += powJump;
         if (simStatus == 1) {
             finalBF = make_unique<Bodyfold>(solver.bodyfold);
+            simTime = solver.time();
             break;
         }
     }
@@ -398,12 +400,14 @@ DynamicRecord runSystem() {
     record.set("init_vel_arr", (double*) initialSystem.velList.data(), NUM*DIM);
     record.set("phase", phase);
 
-    record.set("dts", dts);
+    record.set("phase", phase); SIM TIME EXC TIME SCRAMBLE NUM
 
 
-    record.set("EAMax_POW", energyInfo);
-    record.set("endTime_POW", timeStopInfo);
-    record.set("realTime_POW", realTimeInfo);
+    //record.set("dts", dts);
+    //record.set("EAMax_POW", energyInfo);
+    //record.set("endTime_POW", timeStopInfo);
+    //record.set("realTime_POW", realTimeInfo);
+
     record.set("simStatus", simStatus);
     record.set("haltStatus", haltStatus);
 
