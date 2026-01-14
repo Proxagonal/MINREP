@@ -2,6 +2,7 @@
 #include <chrono>
 #include <unistd.h>
 #include <iostream>
+#include <fstream>
 
 #include "OrbitalElements.h"
 #include "Visualizer.h"
@@ -43,12 +44,11 @@ Velocity: 0 0
     bool RAND = false;
     init = RAND ? Solver::generateRandomCOM() : init;
 
+    double scrambleRatioSquared = 0.33*0.33;
+    bool scrambleStatus = false;
+    int scramNum = 0;
 
-
-
-
-
-    Solver solver(pow(10, -3), init);
+    Solver solver(pow(10, -4), init);
     Visualizer visuals(800, 800, init, solver.dt);
 
     Quantities initialQuants = solver.bodyfold.quantities();
@@ -60,21 +60,36 @@ Velocity: 0 0
 
         if (solver.pass % solver.crossingTimePasses == 0) {
             cout << "Halt Status: " << solver.haltCheck() << endl;
-            cout << Quantities::compare(solver.bodyfold.quantities(), initialQuants) << endl;
         }
+        if (solver.pass % solver.see_checkPer) {
 
-        if (solver.pass % solver.see_checkPer && exc_status != solver.exc_status) {
+            if (exc_status != solver.exc_status) {
+                if (solver.exc_status == Solver::excursionStatus::SUSPECTED)
+                    cout << "Exc Potential Time: " << solver.time() << endl;
+                //if (solver.exc_status == Solver::excursionStatus::RETURNING)
+                //    cout << "AARatio: " << solver.AARatio(solver.exc_body) << endl;
+                if (solver.exc_status == Solver::excursionStatus::NONE && exc_status == Solver::excursionStatus::RETURNING)
+                    cout << "EXC Done at: " << solver.time() << endl;
+//
+                exc_status = (Solver::excursionStatus)solver.exc_status;
+            }
 
-            if (solver.exc_status == Solver::excursionStatus::SUSPECTED)
-                cout << "Exc Potential Time: " << solver.time() << endl;
-            if (solver.exc_status == Solver::excursionStatus::RETURNING)
-                cout << "AARatio: " << solver.AARatio(solver.exc_body) << endl;
-            if (solver.exc_status == Solver::excursionStatus::NONE && exc_status == Solver::excursionStatus::RETURNING)
-                cout << "EXC Done at: " << solver.time() << endl;
 
-            exc_status = (Solver::excursionStatus)solver.exc_status;
+            double minDistSquared = numeric_limits<double>::infinity();
+            double maxDistSquared = 0;
+            for (nat i = 0; i < NUM; i++) {
+                double distsquare = (solver.bodyfold.posList[i] - solver.bodyfold.posList[(i+1)%NUM]).squaredNorm();
+                minDistSquared = min(minDistSquared, distsquare);
+                maxDistSquared = max(maxDistSquared, distsquare);
+            }
+
+            bool testIfScramble = (minDistSquared > scrambleRatioSquared * maxDistSquared);
+            if (testIfScramble != scrambleStatus) {
+                if (testIfScramble)
+                    cout << "Scramble " << ++scramNum << endl;
+                scrambleStatus = testIfScramble;
+            }
         }
-
 
         if (!visuals.easyVisualize(solver.pass, solver.bodyfold.posList))
             break;

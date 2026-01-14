@@ -65,25 +65,48 @@ struct Bodyfold {
         return sumKineticEnergy() + sumPotential();
     }
 
-    VectorAngd sumAngularMomentum() const {
 
+    //TODO: general angular momentum is broken
+    //VectorAngd sumAngularMomentum() const {
+//
+    //    VectorDd COM = getCOMPosition();
+    //    VectorDd COMvel = getCOMVelocity();
+//
+    //    VectorAngd total = VectorAngd::Zero();
+//
+    //    for (int b = 0; b < NUM; b++) {
+//
+    //        VectorDd posInCOM = posList[b] - COM;
+    //        VectorDd momInCOM = massList[b]*(velList[b] - COMvel);
+//
+    //        for (int i = 0; i < DIM; i++)
+    //            for (int j = i + 1; j < DIM; j++)
+    //                total(angularIndex(i, j)) += posInCOM(i)*momInCOM(j) - momInCOM(i)*posInCOM(j);
+    //    }
+//
+    //    return total;
+    //}
+
+    VectorAngd sumAngularMomentum() const {
         VectorDd COM = getCOMPosition();
         VectorDd COMvel = getCOMVelocity();
-
         VectorAngd total = VectorAngd::Zero();
 
         for (int b = 0; b < NUM; b++) {
+            VectorDd r = posList[b] - COM;
+            VectorDd p = massList[b] * (velList[b] - COMvel);
 
-            VectorDd posInCOM = posList[b] - COM;
-            VectorDd momInCOM = massList[b]*(velList[b] - COMvel);
-
-            for (int i = 0; i < DIM; i++)
-                for (int j = i + 1; j < DIM; j++)
-                    total(angularIndex(i, j)) += posInCOM(i)*momInCOM(j) - momInCOM(i)*posInCOM(j);
+#if DIM == 2
+            total(0) += r.x() * p.y() - r.y() * p.x();
+#elif DIM == 3
+            total += r.cross(p);
+#endif
         }
 
         return total;
     }
+
+
 
     VectorDd sumMomentum() const {
 

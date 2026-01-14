@@ -19,31 +19,23 @@
 #include "H5Cpp.h"
 #include <condition_variable>
 
-#define COMPS 12
 #define PATHSTART "/home/ethan/Desktop/DATA/DATAOUT"
-//"/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
-//"/home/ethan/Desktop/DATA/DATAOUT"
-mode_t mode = 0666 | S_IRWXU | S_IRWXG | S_IRWXO;
-
-#define M1 12.5
-#define M2 15
-#define M3 17.5
-#define R12 10
-#define R12_3 100
-
 #define SAMPLE 100
-
+#define DATANAME "SIMULATION"
 #define POWNUM 5
-
-#define DATANAME "name"
+#define COMPS 12
 
 const double MAX_ENERGY_DEVIATION = pow(10, -5);
+
+//"/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
+
 
 
 using namespace std;
 using namespace Eigen;
 using namespace H5;
 
+mode_t mode = 0666 | S_IRWXU | S_IRWXG | S_IRWXO;
 
 struct Feature {
     string name;
@@ -58,12 +50,9 @@ vector<Feature> Schema = {
     {"end_inner_OE",  ORB_ELEMENT_NUM, 0},
     {"end_outer_OE",  ORB_ELEMENT_NUM, 0},
     {"phase",         1, 0},
-    //{"dts",           POWNUM, 0},
-    //{"EAMax_POW",     POWNUM, 0},
-    //{"endTime_POW",   POWNUM, 0},
-    //{"realTime_POW",  POWNUM, 0},
     {"endTime",         1, 0},
-    {"lastExcursionTime",         1, 0},
+    {"lastExcursionEnd",         1, 0},
+    {"totalExcursionTime",         1, 0},
     {"scrambleNumber", 1, 0},
     {"simStatus",     1, 0},
     {"haltStatus",    1, 0}
@@ -280,18 +269,48 @@ static tuple<OrbitalElements, OrbitalElements> innerOuterOE(const Bodyfold &body
     return {innerOE, outerOE};
 }
 
+static tuple<VectorAngd, VectorAngd> innerOuterAngularMomentum(const Bodyfold &bodyfold, nat i) {
 
-int b = 0.05;
-initialData generateSystem(double phase) {
-    return Solver::ergodicScatterRing2D({M1, M2, M3}, R12, R12_3, phase);
+    VectorDd zero = VectorDd::Zero();
+
+    nat uno = (i+1)%NUM;
+    nat dos = (i+2)%NUM;
+
+    double m_uno = bodyfold.massList[uno];
+    double m_dos = bodyfold.massList[dos];
+
+    Bodyfold tempbf({{m_uno, bodyfold.posList[uno], bodyfold.velList[uno]},
+                            {m_dos, bodyfold.posList[dos], bodyfold.velList[dos]},
+                            {0, zero, zero}});
+
+    VectorAngd innerAng = tempbf.sumAngularMomentum();
+
+    VectorDd innerCOM = (m_uno * bodyfold.posList[uno] + m_dos * bodyfold.posList[dos]) / (m_uno + m_dos);
+    VectorDd innerCOMVel = (m_uno * bodyfold.velList[uno] + m_dos * bodyfold.velList[dos]) / (m_uno + m_dos);
+
+    Bodyfold tempbf2({{bodyfold.massList[i], bodyfold.posList[i], bodyfold.velList[i]},
+                        {m_uno + m_dos, innerCOM, innerCOMVel},
+                        {0, zero, zero}});
+
+    VectorAngd outerAng = tempbf2.sumAngularMomentum();
+
+    return {innerAng, outerAng};
 }
 
 
 
+
+double scrambleRatioSquared = pow(0.33, 2);
 int T = pow(10, 7);
 int powStart = -3;
 int powJump = -1;
 int powOver = powStart - POWNUM;
+
+
+
+initialData generateSystem(double phase) {
+    return Solver::ergodicScatterRing2D({17.5, 15, 12.5}, 10, 100, phase);
+}
 
 DynamicRecord runSystem() {
 
@@ -304,19 +323,13 @@ DynamicRecord runSystem() {
 
     double initialEnergy = initialSystem.sumEnergy();
 
-    vector<double> dts;
-    vector<double> energyInfo;
-    vector<double> timeStopInfo;
-    vector<double> realTimeInfo;
 
-    //vector<tuple<int, double, double, double>> SEEInfo;
-    //vector<tuple<int, int, double, double, double, double, double, double>> SOWInfo;
-    //vector<tuple<int, double, double, double, double>> SKIPInfo;
-
-    int simStatus;
-    int haltStatus;
-    double excursionTime = -1;
-    double simTime = -1;
+    int simStatus; // -1: not ended yet. 0: not accurate energy. 1: ended well, 2: timed out
+    int haltStatus; // see Solver::haltStatus:: for all statuses
+    double lastExcursionEnd;
+    double totalExcursionTime;
+    double simTime;
+    int scrambleNumber;
     unique_ptr<Bodyfold> finalBF;
 
     int powNow = powStart;
@@ -326,26 +339,51 @@ DynamicRecord runSystem() {
 
         Solver solver(dt, initialSystem);
 
-        Solver::excursionStatus exc_status = Solver::excursionStatus::NONE;
         simStatus = -1;
         haltStatus = Solver::haltStatus::UNDETERMINED;
+        lastExcursionEnd = -1;
+        simTime = 0;
+        totalExcursionTime = 0;
+        scrambleNumber = 0;
+
+
         double EAMax = 0;
-        auto start = now();
+        double excStartTime;
+        Solver::excursionStatus exc_status = Solver::excursionStatus::NONE;
+        bool scrambleStatus = false;
 
         while (true) {
 
             solver.runIteration();
 
-            if (solver.pass % solver.see_checkPer && exc_status != solver.exc_status) {
+            if (solver.pass % solver.see_checkPer) {
 
-                //if (solver.exc_status == Solver::excursionStatus::SUSPECTED)
-                //    //cout << "Exc Potential Time: " << solver.time() << endl;
-                //if (solver.exc_status == Solver::excursionStatus::RETURNING)
-                //    cout << "AARatio: " << solver.AARatio(solver.exc_body) << endl;
-                if (exc_status == Solver::excursionStatus::RETURNING && solver.exc_status == Solver::excursionStatus::NONE)
-                    excursionTime = solver.time();
+                if (exc_status != solver.exc_status) {
+                    if (solver.exc_status == Solver::excursionStatus::SUSPECTED)
+                        excStartTime = solver.time();
 
-                exc_status = (Solver::excursionStatus)solver.exc_status;
+                    if (exc_status == Solver::excursionStatus::RETURNING && solver.exc_status == Solver::excursionStatus::NONE) {
+                        lastExcursionEnd = solver.time();
+                        totalExcursionTime += lastExcursionEnd - excStartTime;
+                    }
+                    exc_status = (Solver::excursionStatus)solver.exc_status;
+                }
+
+                double minDistSquared = numeric_limits<double>::infinity();
+                double maxDistSquared = 0;
+                for (nat i = 0; i < NUM; i++) {
+                    double distsquare = (solver.bodyfold.posList[i] - solver.bodyfold.posList[(i+1)%NUM]).squaredNorm();
+                    minDistSquared = min(minDistSquared, distsquare);
+                    maxDistSquared = max(maxDistSquared, distsquare);
+                }
+
+                bool testIfScramble = (minDistSquared > scrambleRatioSquared * maxDistSquared);
+                if (testIfScramble != scrambleStatus) {
+                    if (testIfScramble)
+                        scrambleNumber += 1;
+                    scrambleStatus = testIfScramble;
+                }
+
             }
 
             if (solver.pass % solver.crossingTimePasses == 0) {
@@ -366,18 +404,7 @@ DynamicRecord runSystem() {
 
             if (simStatus != -1)
                 break;
-
-
         }
-        //SEEInfo = solver.SEEInfo;
-        //SOWInfo = solver.SOWInfo;
-        //SKIPInfo = solver.SKIPInfo;
-
-        //dts.emplace_back(solver.dt);
-        //realTimeInfo.emplace_back(toMils(start, now()));
-        //energyInfo.emplace_back(EAMax);
-        //timeStopInfo.emplace_back(solver.time());
-
 
         powNow += powJump;
         if (simStatus == 1) {
@@ -400,13 +427,11 @@ DynamicRecord runSystem() {
     record.set("init_vel_arr", (double*) initialSystem.velList.data(), NUM*DIM);
     record.set("phase", phase);
 
-    record.set("phase", phase); SIM TIME EXC TIME SCRAMBLE NUM
-
-
-    //record.set("dts", dts);
-    //record.set("EAMax_POW", energyInfo);
-    //record.set("endTime_POW", timeStopInfo);
-    //record.set("realTime_POW", realTimeInfo);
+    record.set("phase", phase);
+    record.set("endTime", simTime);
+    record.set("lastExcursionEnd", lastExcursionEnd);
+    record.set("totalExcursionTime", totalExcursionTime);
+    record.set("scrambleNumber", scrambleNumber);
 
     record.set("simStatus", simStatus);
     record.set("haltStatus", haltStatus);
