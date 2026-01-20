@@ -33,10 +33,11 @@ then input password: 1248
 */
 
 #define FOLDERPATH "/home/ethan/Desktop/DATA/"
-#define SAMPLE 1000
+#define SAMPLE 2000
 #define DATANAME "SIMULATION"
-#define POWNUM 5
-#define COMPS 23
+#define POWSTART -3
+#define POWOVER -8
+#define COMPS 33
 
 const double MAX_ENERGY_DEVIATION = pow(10, -5);
 
@@ -211,12 +212,36 @@ void hdf5Writer(string filePath) {
     chmod(filePath.c_str(), 0666);
 }
 
+
+std::chrono::steady_clock::time_point globalSimulationStart;
+std::once_flag firstWorkerFinishedFlag;
+std::chrono::steady_clock::time_point startTime1000;
+std::once_flag startFlag;
+std::once_flag endFlag;
+
 void worker(queue<int>& tasks, mutex& taskMtx) {
     while (true) {
         int taskIndex;
         {
             lock_guard<mutex> lock(taskMtx);
-            if (tasks.empty()) return;
+            //if (tasks.empty()) return;
+            if (tasks.empty()) {
+                // This thread is officially done because the queue is empty
+                std::call_once(firstWorkerFinishedFlag, []() {
+                    auto now = std::chrono::steady_clock::now();
+                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime1000).count();
+                    cout << "\n[TIMER] First worker finished all available tasks in: " << elapsed << " ms\n" << endl;
+                });
+                return;
+            }
+
+            // Start timer when 1000 tasks have been handed out
+            if (tasks.size() == (SAMPLE - 1000 - COMPS)) {
+                std::call_once(startFlag, []() {
+                    startTime1000 = std::chrono::steady_clock::now();
+                    cout << "Timer started (1000th task pulled from queue)" << endl;
+                });
+            }
             taskIndex = tasks.front();
             tasks.pop();
         }
@@ -256,6 +281,8 @@ int main() {
     // 3. Start the Single Writer Thread
     thread writer(hdf5Writer, fullpath);
 
+
+    globalSimulationStart = std::chrono::steady_clock::now(); // <--- Add this
     // 4. Start Worker Threads
     vector<thread> workers;
     for (int i = 0; i < COMPS; ++i) {
@@ -333,12 +360,10 @@ static tuple<VectorAngd, VectorAngd> innerOuterAngularMomentum(const Bodyfold &b
 
 double scrambleRatioSquared = pow(0.33, 2);
 int T = pow(10, 7);
-int powStart = -3;
-int powOver = powStart - POWNUM;
 
 initialData generateSystem(double phase) {
 
-    return Solver::ergodicScatterRing2D({25, 15, 5}, 10, 100, phase); //LAST MASS IS BULLET
+    return Solver::ergodicScatterRing2D({17.5, 15, 12.5}, 10, 100, phase); //LAST MASS IS BULLET
     //return Solver::ergodicScatterRing3D({17.5, 15, 12.5}, 10, 100, phase, inclination); //LAST MASS IS BULLET
 
 }
@@ -380,7 +405,7 @@ DynamicRecord runSystem() {
     int scrambleNumber;
     unique_ptr<Bodyfold> finalBF;
 
-    for (int powNow = powStart; powNow > powOver; powNow--) {
+    for (int powNow = POWSTART; powNow > POWOVER; powNow--) {
 
         double dt = pow(10, powNow);
 
