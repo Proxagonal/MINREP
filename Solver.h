@@ -169,10 +169,10 @@ private:
 
 public:
 
-    Solver(double givenDt, const initialData &inits, int skipChecksPerCT=1, int SeeChecksPerCT=500)
+    Solver(double givenDt, const initialData &inits, double skipChecksPerCT=0.1, int SeeChecksPerCT=100)
         : bodyfold{inits}, dt{givenDt},
-            skip_checkPer{crossingTimePasses / skipChecksPerCT},
-            see_checkPer{crossingTimePasses / SeeChecksPerCT}
+            skip_checkPer{(int)(crossingTimePasses / skipChecksPerCT)},
+            see_checkPer{(int)(crossingTimePasses / SeeChecksPerCT)}
     {
         updateAccelerations();
     }

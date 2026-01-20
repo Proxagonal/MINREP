@@ -18,18 +18,27 @@
 #include <array>
 #include "H5Cpp.h"
 #include <condition_variable>
+#include <ctime>
 
-#define PATHSTART "/home/ethan/Desktop/DATA/DATAOUT"
-#define SAMPLE 100
+/*
+
+Press the hammer icon         -                  -                   -                               -                   ^^^
+
+then do CTRL + ALT + T, and paste:
+
+sudo nice -n -20 /home/ethan/CLionProjects/MINREP/cmake-build-release/MINREP
+
+then input password: 1248
+
+*/
+
+#define FOLDERPATH "/home/ethan/Desktop/DATA/"
+#define SAMPLE 1000
 #define DATANAME "SIMULATION"
 #define POWNUM 5
-#define COMPS 12
+#define COMPS 23
 
 const double MAX_ENERGY_DEVIATION = pow(10, -5);
-
-//"/mnt/c/Users/eitan/Desktop/DATA/DATAOUT"
-
-
 
 using namespace std;
 using namespace Eigen;
@@ -50,6 +59,10 @@ vector<Feature> Schema = {
     {"end_inner_OE",  ORB_ELEMENT_NUM, 0},
     {"end_outer_OE",  ORB_ELEMENT_NUM, 0},
     {"phase",         1, 0},
+
+    {"end_inner_AngMom", 1, 0},
+    {"end_outer_AngMom", 1, 0},
+
     {"endTime",         1, 0},
     {"lastExcursionEnd",         1, 0},
     {"totalExcursionTime",         1, 0},
@@ -136,6 +149,16 @@ class DynamicRecord {
     }
 };
 
+using excStatus = Solver::excursionStatus;
+using haltStatus = Solver::haltStatus;
+
+enum simStatus {
+    RUNNING = 0,
+    WELL_ENDED = 1,
+    NOT_ACCURATE = 2,
+    TIMED_OUT = 3
+};
+
 int toMils(std::chrono::steady_clock::time_point start, std::chrono::steady_clock::time_point end) {
     return (duration_cast<chrono::milliseconds>(end - start)).count();
 }
@@ -185,6 +208,7 @@ void hdf5Writer(string filePath) {
         cout << count << endl;
     }
     file.close();
+    chmod(filePath.c_str(), 0666);
 }
 
 void worker(queue<int>& tasks, mutex& taskMtx) {
@@ -211,9 +235,17 @@ void worker(queue<int>& tasks, mutex& taskMtx) {
 
 int main() {
 
-    string unixTime = to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
-    string path = PATHSTART + ("_" + unixTime + "/");
-    mkdir(path.c_str(), mode);
+    auto time = std::chrono::system_clock::now();
+
+    std::time_t time_c = std::chrono::system_clock::to_time_t(time);
+
+    std::tm now_tm = *std::localtime(&time_c);
+
+    stringstream ss;
+    ss << put_time(&now_tm, "%H;%M;%S@%d-%m-%Y");
+    string path = FOLDERPATH + ("OUT_" + ss.str() + "/");
+    mkdir(path.c_str(), 0777);
+    chmod(path.c_str(), 0777);
 
     string fullpath = path + string("DATA.h5");
 
@@ -226,7 +258,7 @@ int main() {
 
     // 4. Start Worker Threads
     vector<thread> workers;
-    for (int i = 0; i < 12; ++i) {
+    for (int i = 0; i < COMPS; ++i) {
         workers.emplace_back(worker, ref(tasks), ref(taskMtx));
     }
 
@@ -299,18 +331,34 @@ static tuple<VectorAngd, VectorAngd> innerOuterAngularMomentum(const Bodyfold &b
 
 
 
-
 double scrambleRatioSquared = pow(0.33, 2);
 int T = pow(10, 7);
 int powStart = -3;
-int powJump = -1;
 int powOver = powStart - POWNUM;
 
-
-
 initialData generateSystem(double phase) {
-    return Solver::ergodicScatterRing2D({17.5, 15, 12.5}, 10, 100, phase);
+
+    return Solver::ergodicScatterRing2D({25, 15, 5}, 10, 100, phase); //LAST MASS IS BULLET
+    //return Solver::ergodicScatterRing3D({17.5, 15, 12.5}, 10, 100, phase, inclination); //LAST MASS IS BULLET
+
 }
+
+
+tuple<simStatus, haltStatus> calculateStatuses(Solver& solver, double EA) {
+
+    if (EA > MAX_ENERGY_DEVIATION)
+        return {simStatus::NOT_ACCURATE, haltStatus::UNDETERMINED};
+
+    if (solver.dt * solver.pass > T)
+        return {simStatus::TIMED_OUT, haltStatus::UNDETERMINED};
+
+    haltStatus stat = (haltStatus)solver.haltCheck();
+    if (stat != haltStatus::UNDETERMINED)
+        return {simStatus::WELL_ENDED, stat};
+
+    return {simStatus::RUNNING, haltStatus::UNDETERMINED};
+}
+
 
 DynamicRecord runSystem() {
 
@@ -324,31 +372,29 @@ DynamicRecord runSystem() {
     double initialEnergy = initialSystem.sumEnergy();
 
 
-    int simStatus; // -1: not ended yet. 0: not accurate energy. 1: ended well, 2: timed out
-    int haltStatus; // see Solver::haltStatus:: for all statuses
+    simStatus simStat;
+    haltStatus haltStat; // see Solver::haltStatus:: for all statuses
     double lastExcursionEnd;
     double totalExcursionTime;
     double simTime;
     int scrambleNumber;
     unique_ptr<Bodyfold> finalBF;
 
-    int powNow = powStart;
-    while (powNow > powOver) {
+    for (int powNow = powStart; powNow > powOver; powNow--) {
 
         double dt = pow(10, powNow);
 
         Solver solver(dt, initialSystem);
 
-        simStatus = -1;
-        haltStatus = Solver::haltStatus::UNDETERMINED;
+        simStat = simStatus::RUNNING;
+        haltStat = haltStatus::UNDETERMINED;
         lastExcursionEnd = -1;
-        simTime = 0;
         totalExcursionTime = 0;
         scrambleNumber = 0;
 
 
         double EAMax = 0;
-        double excStartTime;
+        double excStartTime = -1;
         Solver::excursionStatus exc_status = Solver::excursionStatus::NONE;
         bool scrambleStatus = false;
 
@@ -387,39 +433,35 @@ DynamicRecord runSystem() {
             }
 
             if (solver.pass % solver.crossingTimePasses == 0) {
-                if (solver.haltCheck() != Solver::haltStatus::UNDETERMINED) {
-                    simStatus = 1;
-                    haltStatus = solver.haltCheck();
-                }
-                if (solver.dt * solver.pass > T)
-                    simStatus = 2;
-            }
 
-            if (solver.pass % (solver.crossingTimePasses/100) == 0) {
                 double EA = abs((solver.bodyfold.sumEnergy() - initialEnergy)/initialEnergy);
                 EAMax = max(EA, EAMax);
-                if (EAMax > MAX_ENERGY_DEVIATION)
-                    simStatus = 0;
-            }
 
-            if (simStatus != -1)
-                break;
+                tie(simStat, haltStat) = calculateStatuses(solver, EAMax);
+
+                if (simStat != simStatus::RUNNING)
+                    break;
+            }
         }
 
-        powNow += powJump;
-        if (simStatus == 1) {
+        if (simStat == simStatus::WELL_ENDED) {
             finalBF = make_unique<Bodyfold>(solver.bodyfold);
-            simTime = solver.time();
+            simTime = (excStartTime != -1 ? excStartTime : solver.time());
             break;
         }
     }
 
-    if (simStatus == 1 && haltStatus != Solver::haltStatus::DISSOLUTION) {
+    if (simStat == simStatus::WELL_ENDED && haltStat != haltStatus::DISSOLUTION) {
 
-        auto [innerOE, outerOE] = innerOuterOE(*finalBF, haltStatus);
+        auto [innerOE, outerOE] = innerOuterOE(*finalBF, haltStat);
 
         record.set("end_inner_OE", innerOE.asDoubleArray());
         record.set("end_outer_OE", outerOE.asDoubleArray());
+
+        auto [innerAngMom, outerAngMom] = innerOuterAngularMomentum(*finalBF, haltStat);
+
+        record.set("end_inner_AngMom", innerAngMom.data(), 1);
+        record.set("end_outer_AngMom", outerAngMom.data(), 1);
     }
 
     record.set("mass_arr", initialSystem.massList);
@@ -433,8 +475,8 @@ DynamicRecord runSystem() {
     record.set("totalExcursionTime", totalExcursionTime);
     record.set("scrambleNumber", scrambleNumber);
 
-    record.set("simStatus", simStatus);
-    record.set("haltStatus", haltStatus);
+    record.set("simStatus", simStat);
+    record.set("haltStatus", haltStat);
 
     return record;
 }

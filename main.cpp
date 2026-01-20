@@ -23,23 +23,23 @@ int main() {
 
     string str = R"(
 Body #0:
-Mass: 1
-Position: 0 0
-Velocity: 0 0
+Mass: 17.5
+Position: -3.23146758e+01  8.47544561e-01
+Velocity: -9.60028420e-01 -5.13902302e+00
 Body #1:
-Mass: 1
-Position: 1 0
-Velocity: 0 0
+Mass: 15
+Position: -2.24847301e+01 -9.88801988e-01
+Velocity: 1.12003316e+00  5.99552686e+00
 Body #2:
-Mass: 1
-Position:  1 1
-Velocity: 0 0
+Mass: 12.5
+Position:  7.22222222e+01  1.48029737e-17
+Velocity: 6.90805438e-17  3.15796771e-16
 )";
 
     initialData init = Bodyfold::stringToInitialData(str);
-    init = Bodyfold::transformToCOMSystem(init);
+    //init = Bodyfold::transformToCOMSystem(init);
 
-    init = Solver::ergodicScatterRing2D_eccentric_90deg({17.5, 15, 12.5}, 10, 0.5, 100, rand01()*2*M_PI);
+    //init = Solver::ergodicScatterRing2D({17.5, 15, 12.5}, 10, 100, 1.5);
 
     bool RAND = false;
     init = RAND ? Solver::generateRandomCOM() : init;
@@ -48,7 +48,7 @@ Velocity: 0 0
     bool scrambleStatus = false;
     int scramNum = 0;
 
-    Solver solver(pow(10, -4), init);
+    Solver solver(pow(10, -3), init);
     Visualizer visuals(800, 800, init, solver.dt);
 
     Quantities initialQuants = solver.bodyfold.quantities();
@@ -60,6 +60,7 @@ Velocity: 0 0
 
         if (solver.pass % solver.crossingTimePasses == 0) {
             cout << "Halt Status: " << solver.haltCheck() << endl;
+            cout << "Energy: " << solver.bodyfold.sumEnergy() << endl;
         }
         if (solver.pass % solver.see_checkPer) {
 
