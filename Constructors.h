@@ -60,6 +60,33 @@ initialData Solver::generateRandomCOM() {
 
 #if DIM == 3
 
+initialData Solver::YOGESH_CONSTRUCTOR(double length) {
+
+    initialData list;
+
+    double m1 = 12;
+    VectorDd pos1(0, 0, 0);
+    VectorDd vel1(0, 1, 0);
+
+    list.emplace_back(m1, pos1, vel1); // added body 1
+
+    double m2 = 12;
+    VectorDd pos2(0, -5, 0);
+    VectorDd vel2(0, 1, -1);
+
+    list.emplace_back(m2, pos2, vel2); // added body 1
+
+    double m3 = 12;
+    VectorDd pos3(10, 0, 0);
+    VectorDd vel3(0, -1, 0);
+
+    list.emplace_back(m3, pos3, vel3); // added body 1
+
+
+    return Bodyfold::transformToCOMSystem(list);
+
+}
+
 inline Vector3d rotateAroundAxis(const Vector3d& U, const Vector3d& u, double theta) {
     // Normalize the axis of rotation
     Eigen::Vector3d axis = U.normalized();

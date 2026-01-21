@@ -289,6 +289,7 @@ public:
     inline static initialData ergodicScatterRing3D(array<double, 3> m, double innerDist, double outerDist, double innerPhase, double incline);
     inline static initialData ergodicScatterRing3D_eccentric(array<double, 3> m, double r_max, double r_min, double outerDist, double innerPhase, double phi, double incline);
 
+    inline static initialData YOGESH_CONSTRUCTOR(double length);
 
 #elif DIM == 2
 
