@@ -33,8 +33,8 @@ then input password: 1248
 */
 
 #define FOLDERPATH "/home/ethan/Desktop/DATA/"
-#define SAMPLE 10000
-#define COMPS 100
+#define SAMPLE 100000
+#define COMPS 50
 #define DATANAME "SIMULATION"
 #define POWSTART -3
 #define POWOVER -8
@@ -338,7 +338,7 @@ int T = pow(10, 7);
 
 initialData generateSystem(double phase) { //(double phase, double inclination)
 
-    return Solver::ergodicScatterRing2D({17.5, 15, 12.5}, 10, 100, phase); //LAST MASS IS BULLET
+    return Solver::ergodicScatterRing2D({20, 15, 10}, 10, 100, phase); //LAST MASS IS BULLET
     //return Solver::ergodicScatterRing3D({17.5, 15, 12.5}, 10, 100, phase, inclination); //LAST MASS IS BULLET
 
 }
@@ -403,7 +403,12 @@ DynamicRecord runSystem(int index) {
 
         while (true) {
 
-            solver.runIteration();
+            try {
+                solver.runIteration();
+            } catch (const std::out_of_range& e) {
+                simStat = simStatus::NOT_ACCURATE;
+                break;
+            }
 
             if (solver.pass % solver.see_checkPer) {
 
@@ -454,29 +459,31 @@ DynamicRecord runSystem(int index) {
         }
     }
 
-    if (simStat == simStatus::WELL_ENDED && haltStat != haltStatus::DISSOLUTION) {
+    if (simStat == simStatus::WELL_ENDED) {
 
-        auto [innerOE, outerOE] = innerOuterOE(*finalBF, haltStat);
+        if (haltStat != haltStatus::DISSOLUTION) {
 
-        record.set("end_inner_OE", innerOE.asDoubleArray());
-        record.set("end_outer_OE", outerOE.asDoubleArray());
+            auto [innerOE, outerOE] = innerOuterOE(*finalBF, haltStat);
 
-        auto [innerAngMom, outerAngMom] = innerOuterAngularMomentum(*finalBF, haltStat);
+            record.set("end_inner_OE", innerOE.asDoubleArray());
+            record.set("end_outer_OE", outerOE.asDoubleArray());
 
-        record.set("end_inner_AngMom", innerAngMom.data(), 1);
-        record.set("end_outer_AngMom", outerAngMom.data(), 1);
+            auto [innerAngMom, outerAngMom] = innerOuterAngularMomentum(*finalBF, haltStat);
+
+            record.set("end_inner_AngMom", innerAngMom.data(), 1);
+            record.set("end_outer_AngMom", outerAngMom.data(), 1);
+        }
+
+        record.set("endTime", simTime);
+        record.set("lastExcursionEnd", lastExcursionEnd);
+        record.set("totalExcursionTime", totalExcursionTime);
+        record.set("scrambleNumber", scrambleNumber);
     }
 
     record.set("mass_arr", initialSystem.massList);
     record.set("init_pos_arr", (double*) initialSystem.posList.data(), NUM*DIM);
     record.set("init_vel_arr", (double*) initialSystem.velList.data(), NUM*DIM);
     record.set("phase", phase);
-
-    record.set("phase", phase);
-    record.set("endTime", simTime);
-    record.set("lastExcursionEnd", lastExcursionEnd);
-    record.set("totalExcursionTime", totalExcursionTime);
-    record.set("scrambleNumber", scrambleNumber);
 
     record.set("simStatus", simStat);
     record.set("haltStatus", haltStat);

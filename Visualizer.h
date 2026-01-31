@@ -211,6 +211,7 @@ public:
     int slowerBy = 30;
     bool easyVisualize(long pass, const vData &posList) {
 
+        usleep(50);
         if (pass%savePosPerPasses == 0)
             addToPaths(posList);
 
